@@ -1,0 +1,29 @@
+PATTERN SEQ(A+ a[], B b)
+WHERE partition-contiguity
+AND [symbol]
+AND a[i].price > a[i-1].price
+AND a[1].price > b.price
+WITHIN 500
+-----------------------------------------
+PATTERN SEQ(A a, B b)
+WHERE partition-contiguity
+AND [symbol]
+AND a.price > 100
+AND b.volume < 150
+WITHIN 400
+-----------------------------------------
+PATTERN SEQ(A a, B b, C c, D d)
+WHERE partition-contiguity
+AND [symbol]
+AND a.price = 500
+AND b.volume < 150
+AND c.price > 100
+WITHIN 450
+-----------------------------------------
+PATTERN SEQ(B a, C b, D c)
+WHERE partition-contiguity
+AND [symbol]
+AND a.volume > 500
+AND c.price > b.price
+WITHIN 500
+-----------------------------------------
