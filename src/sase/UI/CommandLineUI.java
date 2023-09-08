@@ -72,7 +72,7 @@ public class CommandLineUI {
 	 * 2: 是否打印结果(1为打印,0为不打印)
 	 * 3: 是否使用共享技术("sharingengine"使用,空为不使用)
 	 */
-	public static void main(String args[]) throws CloneNotSupportedException, EvaluationException, IOException{
+	public static void main(String args[]) throws CloneNotSupportedException, EvaluationException, FileNotFoundException,IOException{
 		String nfaFileLocation = "example\\test\\test.query";
 		String streamConfigFile = "example\\test\\test.stream";
 		//恢复控制台输出删除trycatch

@@ -269,83 +269,85 @@ public class StreamController {
 		//在生成流数据的方法generateABCEvents()中,添加PrintWriter对象:
 		PrintWriter pw = null;
 		try {
+			//写外部文件位置
 			pw = new PrintWriter("C:/Users/Dee/Desktop/第一篇论文/layout/events-10w-50%.txt");
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
 		// this is for correctness test
-		Random r = new Random(11);
-		this.events = new ABCEvent[size];
-		int id;
-		int timestamp = 0;
-		int random = 0;
-		String eventType = "";
-		int price = r.nextInt(100);
-		int volume;
-		int symbol;
+			Random r = new Random(11);
+			this.events = new ABCEvent[size];
+			int id;
+			int timestamp = 0;
+			int random = 0;
+			String eventType = "";
+			int price = r.nextInt(100);
+			int volume;
+			int symbol;
 
-		int counter = 0;
-		int repeatCounter = 0;
-		int repeatLimit = r.nextInt(6) + 5; // random number between 2 and 3
-		int interval = r.nextInt(6) + 5; // random number between 7 and 10
+			int counter = 0;
+			int repeatCounter = 0;
+			int repeatLimit = r.nextInt(6) + 5; // random number between 5 and 10
+			int interval = r.nextInt(2) + 2; // random number between 2 and 3
 
-		for (int i = 0; i < size; i++) {
-			id = i;
-			random = r.nextInt(4);
-			switch (random) {
-				case 0:
-					eventType = "A";
-					break;
-				case 1:
-					eventType = "B";
-					break;
-				case 2:
-					eventType = "C";
-					break;
-				case 3:
-					eventType = "D";
-					break;
-			}
-
-			random = r.nextInt(100);
-			if (random < 55) {
-				price += r.nextInt(5);
-			} else if (random >= 55 && random < 77) {
-				price -= r.nextInt(5);
-			}
-
-			volume = r.nextInt(1000);
-			symbol = r.nextInt(2); // 0 or 1
-
-			// if counter equals to interval, generate repeated timestamps
-			if (counter == interval) {
-				if (repeatCounter < repeatLimit) {
-					repeatCounter++;
-				} else {
-					// if enough repeated timestamps are generated, reset counter and generate new interval and repeatLimit
-					counter = 0;
-					repeatCounter = 0;
-					repeatLimit = r.nextInt(2) + 2; // random number between 2 and 3
-					interval = r.nextInt(4) + 7; // random number between 7 and 10
+			for (int i = 0; i < size; i++) {
+				id = i;
+				random = r.nextInt(4);
+				switch (random) {
+					case 0:
+						eventType = "A";
+						break;
+					case 1:
+						eventType = "B";
+						break;
+					case 2:
+						eventType = "C";
+						break;
+					case 3:
+						eventType = "D";
+						break;
 				}
-			} else {
-				timestamp++;
-				counter++;
+
+				random = r.nextInt(100);
+				if (random < 55) {
+					price += r.nextInt(5);
+				} else if (random >= 55 && random < 77) {
+					price -= r.nextInt(5);
+				}
+
+				volume = r.nextInt(1000);
+				symbol = r.nextInt(2); // 0 or 1
+
+				// if counter equals to interval, generate repeated timestamps
+				if (counter == interval) {
+					if (repeatCounter < repeatLimit) {
+						repeatCounter++;
+					} else {
+						// if enough repeated timestamps are generated, reset counter and generate new interval and repeatLimit
+						counter = 0;
+						repeatCounter = 0;
+						repeatLimit = r.nextInt(6) + 5; // random number between 5 and 10
+						interval = r.nextInt(2) + 2; // random number between 2 and 3
+					}
+				} else {
+					timestamp++;
+					counter++;
+				}
+				events[i] = new ABCEvent(id, timestamp, symbol, eventType, price, volume);
+				//在生成每个事件对象时,将事件数据写入文件:
+				pw.println(id + "," + timestamp + "," + symbol + "," + eventType + "," + price + "," + volume);
 			}
-
-			events[i] = new ABCEvent(id, timestamp, symbol, eventType, price, volume);
-			//在生成每个事件对象时,将事件数据写入文件:
-			pw.println(id + "," + timestamp + "," + symbol + "," + eventType + "," + price + "," + volume);
-
-		}
 		//生成完数据后,关闭PrintWriter:
 		pw.close();}
 		else{
 			try {
+				//读外部文件位置
 				BufferedReader reader = new BufferedReader(new FileReader("C:/Users/Dee/Desktop/第一篇论文/layout/events-10w-50%.txt"));
+				//BufferedReader reader = new BufferedReader(new FileReader(args[0]));
 				String line;
 				int i = 0;
 				this.events = new ABCEvent[size];
+	//			while ((line = reader.readLine()) != null) {
 				while ((line = reader.readLine()) != null) {
 					String[] parts = line.split(",");
 					int id = Integer.parseInt(parts[0]);
