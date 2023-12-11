@@ -75,12 +75,7 @@ public class CommandLineUI {
 	public static void main(String args[]) throws CloneNotSupportedException, EvaluationException, FileNotFoundException,IOException{
 		String nfaFileLocation = "example\\test\\test.query";
 		String streamConfigFile = "example\\test\\test.stream";
-		//恢复控制台输出删除trycatch
-		try {
-			// 创建一个新的输出流，将标准输出重定向到文件
-			PrintStream fileOutput = new PrintStream(new FileOutputStream("C:\\Users\\Dee\\Desktop\\第一篇论文\\新events-10w-50%.txt"));
-			// 将标准输出设置为新的输出流
-			System.setOut(fileOutput);
+
 
 
 		String engineType = null;
@@ -134,14 +129,8 @@ public class CommandLineUI {
 
 
 
-			// 关闭输出流
-			fileOutput.close();
-			// 恢复标准输出
-			System.setOut(new PrintStream(new FileOutputStream(FileDescriptor.out)));
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
 		}
 
 		}
-	}
+
 //}

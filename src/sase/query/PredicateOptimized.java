@@ -293,75 +293,87 @@ public class PredicateOptimized {
 
 
 	/**
-	 * Evaluates an event against this predicate
-	 * @param currentEvent the current event
-	 * @param previousEvent previous event in the same run
-	 * @return the evaluation result
+	 * 评估事件是否符合谓词
+	 * @param currentEvent 当前事件
+	 * @param previousEvent 同一运行中的上一个事件
+	 * @return 评估结果
 	 * @throws EvaluationException
 	 */
 	public boolean evaluate(Event currentEvent, Event previousEvent) throws EvaluationException{
-
-		
+		// 遍历变量操作数列表
 		for(int i = 0; i < this.varOperands.size(); i ++){
+			// 获取当前变量操作数
 			tempOperand = this.varOperands.get(i);
+			// 获取变量对应的属性名称
 			tempAttributeName = tempOperand.getAttribute();
+
+			// 如果变量操作数具有关联状态，并且关联状态是"$previous"
 			if(tempOperand.hasRelatedState && tempOperand.relatedState.equalsIgnoreCase("$previous")){
-				if(tempOperand.relatedState.equalsIgnoreCase("$previous")){
-				
+				// 设置变量的值为上一个事件的对应属性的值
 				evl.putVariable(tempOperand.getOriginalRepresentation(), ""+previousEvent.getAttributeByName(tempAttributeName));
-				}
-			}else {
+			} else {
+				// 设置变量的值为当前事件的对应属性的值
 				evl.putVariable(tempOperand.getOriginalRepresentation(), ""+currentEvent.getAttributeByName(tempAttributeName));
 			}
 		}
-		
 
-		if("1.0".equalsIgnoreCase( evl.evaluate(this.formatedPredicate)))
-		   return true;
-		else
+		// 使用表达式解释器进行格式化后的谓词表达式的计算
+		if("1.0".equalsIgnoreCase(evl.evaluate(this.formatedPredicate))){
+			// 如果计算结果为1.0（true），则返回true
+			return true;
+		} else {
+			// 如果计算结果不为1.0（false），则返回false
 			return false;
+		}
 	}
 	/**
-	 * Evaluates an event against the predicate
-	 * @param currentEvent the current event
-	 * @param r the run
-	 * @return the evaluation result
+	 * 根据谓词评估事件
+	 * @param currentEvent 当前事件
+	 * @param r 运行
+	 * @return 评估结果
 	 * @throws EvaluationException
 	 */
 	public boolean evaluate(Event currentEvent, Run r, EventBuffer b) throws EvaluationException{
+		// 遍历变量操作数列表
 		for(int i = 0; i < this.varOperands.size(); i ++){
+			// 获取当前变量操作数
 			tempOperand = this.varOperands.get(i);
+			// 获取变量对应的属性名称
 			tempAttributeName = tempOperand.getAttribute();
+			// 如果变量操作数没有关联状态
 			if(!tempOperand.hasRelatedState){
-				//only need current event
+				// 只需要当前事件
 				evl.putVariable(tempOperand.getOriginalRepresentation(), ""+currentEvent.getAttributeByName(tempAttributeName));
-			}else if(!tempOperand.hasAggregation){
-				// need related event
+			} else if(!tempOperand.hasAggregation){
+				// 需要关联事件
 				if(tempOperand.getRelatedState().equalsIgnoreCase("$previous")){
+					// 如果关联状态为"$previous"
 					int eventId = r.getPreviousEventId();
 					int value = b.getEvent(eventId).getAttributeByName(tempAttributeName);
-					
 					evl.putVariable(tempOperand.getOriginalRepresentation(), ""+b.getEvent(eventId).getAttributeByName(tempAttributeName));
 				}
-			}else{
-				// need aggregation value
+			} else {
+				// 需要聚合值
 				int stateNumber;
 				stateNumber = Integer.parseInt(tempOperand.getRelatedState());
 				if(stateNumber - 1 == r.getCurrentState()){
+					// 如果关联状态与当前运行的状态匹配，则返回true
 					return true;
 				}
+				// 设置变量的值为所需的聚合值
 				evl.putVariable(tempOperand.getOriginalRepresentation(), ""+r.getNeededValueVector(stateNumber - 1, tempAttributeName, tempOperand.getAggregation()));
 			}
-			}
-		
-		
-		
-
-		if("1.0".equalsIgnoreCase( evl.evaluate(this.formatedPredicate)))
-		   return true;
-		else
+		}
+		// 使用表达式解释器进行格式化后的谓词表达式的计算
+		if("1.0".equalsIgnoreCase(evl.evaluate(this.formatedPredicate))){
+			// 如果计算结果为1.0（true），则返回true
+			return true;
+		} else {
+			// 如果计算结果不为1.0（false），则返回false
 			return false;
+		}
 	}
+
 	/**
 	 * @return the predicateDescription
 	 */

@@ -33,6 +33,7 @@ import net.sourceforge.jeval.EvaluationException;
 
 import org.jetbrains.annotations.NotNull;
 import org.junit.Test;
+import org.junit.internal.Checks;
 import sase.query.Edge;
 import sase.query.NFA;
 import sase.query.State;
@@ -430,22 +431,8 @@ public class Engine {
 			if (r.isFull()) {
 				continue;
 			}
-			/**
-			 *1.nfa.getTimeStamp()是开始时间
-			 * lasttimestamp：activeRuns中被选中运行的部分匹配最后一个时间戳
-			 */
-//			lastid = e.getId() - 1;
 			lasttimestamp = r.getLastNEventTimeStamp();//Algorithm1
-//			System.out.println("开始尝试activeRuns中第"+i+"个部匹配"+"\n"+"当前事件id："+e.getId()+"\n"+"lastid:"+lastid+"\n"+"当前事件id："+e.getId()+"\n"+"lastid:"+lastid);
-			//如果当前事件时间戳与activeruns运行中最后一个事件相同，说明在同包内，不与本组进行部分匹配
-			//获取activeruns运行中最后一个事件的时间戳
-			//不与本组的同时刻事件，进行部分匹配。
 			this.evaluateEventForSkipTillNext(e, r);
-
-//输出测试
-//			System.out.println("检查第" + i + "个部分匹配"+"\n");
-//			for (int j = 0; j < r.size; j++) {
-//				System.out.print(+r.state[j] + ",");
 			}
 		}
 
@@ -754,7 +741,15 @@ public class Engine {
 	//如果checkresult = true，当前事件e加入当前运行r
 	public void evaluateEventForSkipTillNext(Event e, Run r) throws CloneNotSupportedException{
 		boolean checkResult = true;
-		checkResult = this.checkPredicate(e, r);// check predicate
+		int currentState = r.getCurrentState();
+		State s = this.nfa.getStates(currentState);
+		//如果是并发边，则进行位运算
+//		if(s.getStateType().equalsIgnoreCase("concurrent")){
+//			checkResult = this.checkConcurrentPredicate(e, r);
+//		}else{//如果是普通边进行普通谓词检查
+			checkResult = this.checkPredicate(e, r);// check predicate
+//		}
+
 		//当前时间戳与当前部分匹配的最后时间戳相同
 		//注销掉if，作为正常sase
 		if(e.getTimestamp() != lasttimestamp){
@@ -1012,14 +1007,6 @@ public class Engine {
 			//this.numberOfRuns.update(1);
 			numberOfRuns ++;
 			this.activeRuns.add(newRun);
-//			for (int i = 0; i < activeRuns.size(); i++) {
-//				System.out.print("activeRunsId:"+activeRuns.get(i).getEventIds());
-//				System.out.print(",state:");
-//				int[] dangqianstate = activeRuns.get(i).getState();
-//				for (int j = 0; j < 3; j++) {
-//					System.out.print(dangqianstate[j]+",");
-//				}
-//			}
 
 		}
 	}
@@ -1134,53 +1121,112 @@ public class Engine {
 		result = beginEdge.evaluatePredicate(e, r, buffer);
 		return result;
 	}
-/**
- * Checks whether the event satisfies the predicates of a run
- * @param e the current event
- * @param r the current run
- * @return the check result
+
+//
+//	public boolean checkConcurrentPredicate(Event e, Run r){
+//		int currentState = r.getCurrentState();
+//		State s = this.nfa.getStates(currentState);
+//		if(!s.getEventType().equalsIgnoreCase(e.getEventType())){// event type check;
+//			return false;
+//		}
+//
+//		if(!s.isKleeneClosure()){
+//			Edge beginEdge = s.getEdges(0);
+//			boolean result;
+//			//result = firstEdge.evaluatePredicate(e, r, buffer);
+//			result = beginEdge.evaluatePredicate(e, r, buffer);//
+//			if(result){
+//				return true;
+//			}
+//		}else{
+//			if(r.isKleeneClosureInitialized()){
+//				Edge takeEdge = s.getEdges(1);
+//				boolean result;
+//				result = takeEdge.evaluatePredicate(e, r, buffer);
+//				if(result){
+//					return true;
+//				}
+//			}else{
+//				Edge beginEdge = s.getEdges(0);
+//				boolean result;
+//
+//				result = beginEdge.evaluatePredicate(e, r, buffer);//
+//				if(result){
+//					return true;
+//				}
+//			}
+//		}
+//
+//
+//
+//		return false;
+//
+//
+//	}
+
+/**Checks whether the event satisfies the predicates of a run
+ * 检查事件是否满足运行的谓词
+ * @param e the current event 当前事件
+ * @param r the current run 当前运行
+ * @return the check result 检查结果
  */
-	
 	public boolean checkPredicate(Event e, Run r){
+		// 获取当前运行的状态
 		int currentState = r.getCurrentState();
+		// 获取当前状态
 		State s = this.nfa.getStates(currentState);
-		if(!s.getEventType().equalsIgnoreCase(e.getEventType())){// event type check;
+
+		// 检查事件类型是否匹配
+		if(!s.getEventType().equalsIgnoreCase(e.getEventType())){
+			// 如果事件类型不匹配，返回false
 			return false;
 		}
 
-		if(!s.isKleeneClosure()){
+		// 检查状态是否不是Kleene闭包状态
+		if (!s.isKleeneClosure()) {
+			// 获取状态的第一条边,beginEdge用于闭包
 			Edge beginEdge = s.getEdges(0);
+			// 定义用于存储谓词计算结果的变量
 			boolean result;
-			//result = firstEdge.evaluatePredicate(e, r, buffer);
+			// 评估第一条边上的谓词，将结果存储在result中
 			result = beginEdge.evaluatePredicate(e, r, buffer);//
-			if(result){
+			// 如果谓词计算结果为真，返回true
+			if (result) {
 				return true;
 			}
-		}else{
-			if(r.isKleeneClosureInitialized()){
+		} else {//DeeDee
+			if (r.isConcurrentInitialized()) {
+			//从这里开始写
+				//如果States是concurrent事件
+				//获取边上的谓词，比如B^C^
+			}
+			// 如果状态是Kleene闭包状态
+			// 检查是否初始化了Kleene闭包
+			if (r.isKleeneClosureInitialized()) {
 				Edge takeEdge = s.getEdges(1);
 				boolean result;
+				// 评估第二条边上的谓词，将结果存储在result中
 				result = takeEdge.evaluatePredicate(e, r, buffer);
-				if(result){
+				// 如果谓词计算结果为真，返回true
+				if (result) {
 					return true;
 				}
-			}else{
+			} else {
 				Edge beginEdge = s.getEdges(0);
+				// 定义用于存储谓词计算结果的变量
 				boolean result;
-				
+				// 评估第一条边上的谓词，将结果存储在result中
 				result = beginEdge.evaluatePredicate(e, r, buffer);//
-				if(result){
+				// 如果谓词计算结果为真，返回true
+				if (result) {
 					return true;
 				}
 			}
 		}
-		
-
-		
-		return false;	
-		
-		
+		// 如果未满足任何条件，返回false
+		return false;
 	}
+
 	/**
 	 * Checks whether the event satisfies the partition of a run, only used under partition-contiguity selection strategy
 	 * @param e the current event

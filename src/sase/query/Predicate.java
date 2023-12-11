@@ -168,7 +168,7 @@ public class Predicate {
 		this.setRelatedState(sub);
 		
 	}
-	
+
 	/**
 	 * Evaluates an event against this predicate
 	 * @param currentEvent the current event
@@ -177,22 +177,24 @@ public class Predicate {
 	 * @throws EvaluationException
 	 */
 	public boolean evaluate(Event currentEvent, Event previousEvent) throws EvaluationException{
+		// 遍历谓词数组
 		for(int i = 0; i < this.operandCount; i ++){
 			if(operands[i].startsWith("previous")){
 				evl.putVariable(operands[i], ""+previousEvent.getAttributeByName(attributeName));
-				
+
 			}else{
 				evl.putVariable(operands[i], ""+currentEvent.getAttributeByName(attributeName));
 			}
 		}
 		if("1.0".equalsIgnoreCase( evl.evaluate(predicate)))
 		   return true;
-		else
+		else {
 			return false;
+		}
 	}
-	
 
-	
+
+
 	/**
 	 * Evaluates an event against the predicate
 	 * @param currentEvent the current event
@@ -223,13 +225,15 @@ public class Predicate {
 		}
 		if("1.0".equalsIgnoreCase( evl.evaluate(predicate)))
 		   return true;
-		else
+		else {
 			return false;
+		}
 	}
 
 	/**
 	 * Self description
 	 */
+	@Override
 	public String toString(){
 		return predicate;
 	}

@@ -122,7 +122,8 @@ public class ABCEvent implements Event{
 	/**
 	 * @return the eventType
 	 */
-	public String getEventType() {
+	@Override
+    public String getEventType() {
 		return eventType;
 	}
 

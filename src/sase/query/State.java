@@ -63,19 +63,20 @@ public class State {
 	 * Denoting whether this state is the first state
 	 */
 	boolean isStart;
-	boolean isSameStart;
+	boolean isConcurrentStart;
+	
 
 	/**
 	 * Denoting whether this state is the last state
 	 */
 	boolean isEnding;
-	boolean isSameEnding;
+	boolean isConcurrentEnding;
 	
 	/**
 	 * Denoting whether this state is a kleene closure state
 	 */
 	boolean isKleeneClosure;
-	boolean isSame;//Dee
+	boolean isConcurrent;//Dee
 	boolean isNegation;
 	boolean isBeforeNegation;
 	boolean isAfterNegation;
@@ -106,6 +107,9 @@ public class State {
 		if(this.stateType.equalsIgnoreCase("kleeneclosure")){
 			this.isKleeneClosure = true;
 		}
+		if(this.stateType.equalsIgnoreCase("concurrent")){
+			this.isConcurrent = true;
+		}
 		
 	}
 
@@ -116,6 +120,7 @@ public class State {
 		this.stateType = stateType;
 		if(this.stateType.equalsIgnoreCase("normal")){
 			this.isKleeneClosure = false;
+			this.isConcurrent = false;
 			this.isNegation = false;
 			//创建一个边对象数组，其大小为1
 			this.edges = new Edge[1];
@@ -123,29 +128,18 @@ public class State {
 			this.edges[0] = new Edge(0);
 		}
 		//Dee
-		else if(this.stateType.equalsIgnoreCase("sameStamp")){
+		else if(this.stateType.equalsIgnoreCase("concurrent")){
 			//NFAsamecount++;
-			this.isSame = true;
+			this.isConcurrent = true;
 			this.isKleeneClosure = false;
 			this.isNegation = false;
-
 			this.edges = new Edge[1];
-//			//如果是第一个事件，新建两条边
-//			if (NFAsamecount == 1){
-//				this.edges = new Edge[2];
-//				for (int i = 0; i < 2; i++) {
-//					this.edges[i] = new Edge(1);
-//				}
-//			}
-
+			this.edges[0] = new Edge(3);
 			//判断边的属性（0：begin；1：take；-1:same）
-
-
-//
 		}else if(this.stateType.equalsIgnoreCase("kleeneClosure")){
 			this.isKleeneClosure = true;
 			this.isNegation = false;
-			this.isSame = false;
+			this.isConcurrent = false;
 			this.edges = new Edge[3];
 			for(int i = 0; i < 3; i ++){
 				this.edges[i] = new Edge(i);
@@ -153,7 +147,7 @@ public class State {
 		}else if(this.stateType.equalsIgnoreCase("negation")){
 			this.isKleeneClosure = false;
 			this.isNegation = true;
-			this.isSame = false;
+			this.isConcurrent = false;
 			this.edges = new Edge[1];
 			this.edges[0] = new Edge(0);
 		}
@@ -315,10 +309,10 @@ public class State {
 			temp += " I am a ending state";
 		if(isKleeneClosure)
 			temp += " I am a kleene closure state";
-		if(isSameStart)
-			temp += " 我是同时刻事件的开始事件";
-		if(isSameEnding)
-			temp += " 我是同时刻事件的结束事件";
+		if(isConcurrentStart)
+			temp += " 我是并发事件的开始事件";
+		if(isConcurrentEnding)
+			temp += " 我是并发事件的结束事件";
 		temp += " My state type is: " + this.stateType;
 		temp += "\n my description file = " + this.nfaLine;
 		return "This is the " + order + " state, requiring events of " + eventType

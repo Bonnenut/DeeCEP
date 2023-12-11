@@ -111,7 +111,8 @@ public class StockEvent implements Event{
 	}
 
 	
-	public String getEventType() {
+	@Override
+    public String getEventType() {
 		// TODO Auto-generated method stub
 		return this.eventType;
 	}

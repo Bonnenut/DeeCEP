@@ -121,7 +121,7 @@ public class Run  implements Cloneable{
 	 * Flag denoting whether the kleene closure state in the query (if it contains) is initialized
 	 */
 	boolean kleeneClosureInitialized;
-	
+	boolean ConcurrentInitialized;
 	/**
 	 * Value vectors, records the values needed by computation state.
 	 */
@@ -161,6 +161,7 @@ public class Run  implements Cloneable{
 		this.isComplete = false;
 		this.count = 0;
 		this.kleeneClosureInitialized = false;
+		this.ConcurrentInitialized= false;
 		if(this.nfa.isNeedValueVector()){
 			this.valueVector = new ValueVectorElement[this.size][];
 		}
@@ -183,6 +184,7 @@ public class Run  implements Cloneable{
 		this.isFull = false;
 		this.count = 0;
 		this.kleeneClosureInitialized = false;
+		this.ConcurrentInitialized = false;
 		
 	}
 	/**
@@ -190,8 +192,9 @@ public class Run  implements Cloneable{
 	 * @return the check result, boolean format
 	 */
 	public boolean checkMatch(){
-		if(!this.isFull)
+		if(!this.isFull) {
 			return false;
+		}
 		for(int i = 0; i < state.length; i ++){
 			if (state[i] != 2){
 				return false;
@@ -257,7 +260,13 @@ public class Run  implements Cloneable{
 			this.kleeneClosureInitialized = true;
 			state[currentState] = 3;
 			this.count ++;			
-		}//查询的第一个事件，记录初始事件用于计算时间窗口；不是第一个事件不进入
+		}else if(stateType.equalsIgnoreCase("concurrent")){
+			this.eventIds.add(e.getId());
+			this.ConcurrentInitialized = true;
+			state[currentState] = -1;
+			this.count ++;
+		}
+		//查询的第一个事件，记录初始事件用于计算时间窗口；不是第一个事件不进入
 		if(this.count == 1){
 			this.startTimeStamp = e.getTimestamp();
 			if(ConfigFlags.hasPartitionAttribute){
@@ -566,12 +575,20 @@ public class Run  implements Cloneable{
 	}
 
 	/**
+	 * @return the kleeneClosureInitialized
+	 */
+	public boolean isConcurrentInitialized() {
+		return ConcurrentInitialized;
+	}
+	/**
 	 * @param kleeneClosureInitialized the kleeneClosureInitialized to set
 	 */
 	public void setKleeneClosureInitialized(boolean kleeneClosureInitialized) {
 		this.kleeneClosureInitialized = kleeneClosureInitialized;
 	}
-
+	public void setConcurrentInitialized(boolean ConcurrentInitialized) {
+		this.ConcurrentInitialized = ConcurrentInitialized;
+	}
 	/**
 	 * @return the valueVector
 	 */

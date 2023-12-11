@@ -81,7 +81,7 @@ public class Edge {
 					break;
 			case 2: this.edgeType = "proceed";
 					break;
-			case -1:this.edgeType = "same";
+			case -1:this.edgeType = "concurrent";
 				break;
 		}
 	}
@@ -112,29 +112,33 @@ public class Edge {
 		}}
 		return true;
 	}
-	
 
-	
+
+
 	/**
-	 * Override method, evaluates event based on the current event, and a run.
-	 * @param currentEvent the current event
-	 * @param r a run
-	 * @return the evaluate result
+	 * 重写的方法，基于当前事件和运行来评估谓词。
+	 * @param currentEvent 当前事件
+	 * @param r 一个运行
+	 * @return 评估结果
 	 */
 	public boolean evaluatePredicate(Event currentEvent, Run r, EventBuffer b){
+		// 遍历谓词数组
 		for(int i = 0; i < this.predicates.length; i ++){
-			try {
+			try {// 调用谓词的evaluate方法，传入当前事件、运行和事件缓冲区
 				if(!this.predicates[i].evaluate(currentEvent, r, b)){
+					// 如果谓词计算结果为false，则返回false
 					return false;
 				}
 			} catch (EvaluationException e) {
-				
+				// 处理评估异常，打印异常信息
 				e.printStackTrace();
 			}
 		}
+		// 如果所有谓词计算结果均为true，则返回true
 		return true;
 	}
-	
+
+
 	/**
 	 * Parses the edge from the input string
 	 * @param edgeTypeDescription the description string

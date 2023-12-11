@@ -75,7 +75,7 @@ public class NFA {
 	 * It is needed when there are aggregates or parameterized predicates
 	 */
 	boolean needValueVector;
-	
+	boolean needConcurrent;
 	/**
 	 * The value vectors for the computation state
 	 */
@@ -208,16 +208,16 @@ public class NFA {
 		
 		if(this.size > 0){
 			states[0].setStart(true);
-			states[size-1].setEnding(true);
-			//如果事件1、2为同时刻事件，则把第二个事件也设为setStart
-			if(this.states[1].stateType == "sameStamp"){
-				states[1].setStart(true);
-			}
-			//如果事件最后一个事件、次最后事件，为同时刻事件，则把次最后事件也设为setEnding
-			if(this.states[size-1].stateType == "sameStamp"){
-				states[1].setStart(true);
-				states[size-2].setEnding(true);
-			}
+			states[size -1].setEnding(true);
+//			//如果事件1、2为同时刻事件，则把第二个事件也设为setStart
+//			if(this.states[1].stateType == "concurrent"){
+//				states[1].setStart(true);
+//			}
+//			//如果事件最后一个事件、次最后事件，为同时刻事件，则把次最后事件也设为setEnding
+//			if(this.states[size-1].stateType == "concurrent"){
+//				states[1].setStart(true);
+//				states[size-2].setEnding(true);
+//			}
 		}
 	}
 
@@ -243,6 +243,9 @@ public class NFA {
 			this.timeWindow = Integer.parseInt(st.nextToken().trim());
 		}
 	}
+
+	public int currentStateNumber =0;
+
 	/**
 	 * Parses the query sequence
 	 * 解析查询序列
@@ -257,16 +260,17 @@ public class NFA {
 		//System.out.println(size);
 		this.states = new State[size];
 		String state;
+		currentStateNumber =0;
+
 		//遍历seq内容
 		for(int i = 0; i < size; i ++){
+			int theCount=0;
 			boolean isKleeneClosure = false;
 			boolean isNegation = false;
-			boolean isSame = false;//Dee
+			boolean isConcurrent = false;//Dee
 			boolean isNormal = false;
 
-
 			state = st.nextToken();
-
 			StringTokenizer stateSt = new StringTokenizer(state);
 			//获取大标(事件类型)
 			String eventType = stateSt.nextToken().trim();
@@ -281,12 +285,11 @@ public class NFA {
 			}else if(eventType.contains("!")){
 				isNegation = true;
 				eventType = eventType.substring(1, eventType.length());//？
-		//如果检测到同时刻事件标识"^"
+			//如果检测到同时刻事件标识"^"
 			}else if(eventType.contains("^")){
-				isSame = true;
+				isConcurrent = true;
 				//获取小标
 				stateTag = stateTag.substring(0, 1);
-
 			}else {
 				isNormal = true;
 			}
@@ -295,20 +298,26 @@ public class NFA {
 				this.states[i] = new State(i + 1, stateTag, eventType, "kleeneClosure");
 			}else if(isNegation){
 				this.states[i] = new State(i + 1, stateTag, eventType, "negation");
-			}else if(isSame){//【sameStamp】构建当前事件状态机
-				this.states[i] = new State(i + 1, stateTag, eventType,"sameStamp");
-				//NFAStates数组记录Q的三个状态
-				this.NFAStates.set(i, states[i]);
-				//凑齐后颠倒顺序
-				if(i == size){
-
-
+			}//当前是Concurrent事件
+			else if(isConcurrent) {//【concurrent】构建当前事件状态机
+			//上一个是Concurrent事件
+				if ((currentStateNumber > 0) && getStates(currentStateNumber-1).stateType.equalsIgnoreCase("concurrent")){
+					State lastState = getStates(currentStateNumber-1);
+					// 将当前状态合并到已存在的状态
+					states[currentStateNumber-1].setEventType(lastState.getEventType() + eventType);
+//					currentStateNumber ++;
+				}else{// 创建一个新的状态来表示同时发生的事件组合
+					this.states[currentStateNumber] = new State(i+1, stateTag, eventType, "concurrent");
+					currentStateNumber  ++;
 				}
+				// 检查是否已经存在相同的同时发生的事件组合，如果存在，则将当前状态合并到该状态
 			}else{//【normal】构建当前事件状态机
 				//states[0]→states[1]→states[2]
-				this.states[i] = new State (i + 1, stateTag, eventType, "normal");
+				this.states[currentStateNumber] = new State (i + 1, stateTag, eventType, "normal");
+				currentStateNumber  ++;
 			}
 			}
+		size=currentStateNumber;
 		}
 	/**
 	 * Parses the conditions starting with "AND", it might be the partition attribute, or predicates for states
@@ -429,25 +438,42 @@ public class NFA {
 		for(int i = 0; i < this.getSize(); i ++){
 			State tempState = this.getStates(i);
 			//i = j
-			for(int j = 0; j < tempState.getEdges().length; j ++){
+			// 外部循环：迭代当前状态（tempState）的所有边
+			for(int j = 0; j < tempState.getEdges().length; j ++) {
+				// 获取当前边（tempEdge）
 				Edge tempEdge = tempState.getEdges(j);
-				for(int k = 0; k < tempEdge.getPredicates().length; k ++){
+
+				// 内部循环：迭代当前边（tempEdge）的所有谓词
+				for(int k = 0; k < tempEdge.getPredicates().length; k ++) {
+					// 获取当前谓词（tempPredicate）
 					PredicateOptimized tempPredicate = tempEdge.getPredicates()[k];
-					if(!tempPredicate.isSingleState()){
+
+					// 检查谓词是否涉及多个状态
+					if(!tempPredicate.isSingleState()) {
+						// 从谓词获取操作和属性名称
 						String operationName = tempPredicate.getOperation();
 						String attributeName = tempPredicate.getAttributeName();
+
+						// 用于存储与谓词相关联的状态编号的变量
 						int stateNumber;
+
+						// 检查谓词是否与“previous”状态相关
 						if(tempPredicate.getRelatedState().equals("previous")){
+							// 将stateNumber设置为前一个状态的索引
 							stateNumber = i - 1;
-						}else{
+						} else {
+							// 解析相关状态的索引并相应地设置stateNumber
 							stateNumber = Integer.parseInt(tempPredicate.getRelatedState()) - 1;
 						}
-						valueV.add(new ValueVectorTemplate(stateNumber,attributeName, operationName,i));
+
+						// 创建一个新的ValueVectorTemplate并将其添加到列表（valueV）
+						valueV.add(new ValueVectorTemplate(stateNumber, attributeName, operationName, i));
+
+						// 根据相关状态的编号更新计数器
 						counter[stateNumber]++;
-				
+					}
 				}
 			}
-		}
 						
 		}
 		
@@ -482,6 +508,7 @@ public class NFA {
 	/**
 	 * Self description
 	 */
+	@Override
 	public String toString(){
 		String temp = "";
 		temp += "The selection strategy is: " + this.selectionStrategy;
@@ -499,7 +526,7 @@ public class NFA {
 				temp += "\n";
 			}
 		}
-		if(this.hasPartitionAttribute == true){
+		if(this.hasPartitionAttribute){
 			temp += "The partition attribute is: " + this.partitionAttribute + "\n";
 		}
 		return temp;

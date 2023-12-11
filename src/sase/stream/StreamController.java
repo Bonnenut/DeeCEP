@@ -342,7 +342,7 @@ public class StreamController {
 		else{
 			try {
 				//读外部文件位置
-				BufferedReader reader = new BufferedReader(new FileReader("C:/Users/Dee/Desktop/第一篇论文/layout/events-10w-50%.txt"));
+				BufferedReader reader = new BufferedReader(new FileReader("D:\\第一篇论文\\实验\\事件流\\实验图例.txt"));
 				//BufferedReader reader = new BufferedReader(new FileReader(args[0]));
 				String line;
 				int i = 0;
