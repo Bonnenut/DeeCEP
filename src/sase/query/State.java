@@ -244,8 +244,9 @@ public class State {
 		 if(predicateLeft.contains("[i]")){
 			 //"take" edge
 			return 1;
-		}else
-			return 0;
+		}else {
+			 return 0;
+		 }
 	}
 	/**
 	 * Parses a line in the nfa file, e.g.: State=1 & type = normal & eventtype = c | edgetype = begin & price < 100
@@ -301,37 +302,60 @@ public class State {
 	/**
 	 * Self description
 	 */
+	@Override
 	public String toString(){
 		String temp = "";
-		if(isStart)
+		if(isStart) {
 			temp += " I am a starting state";
-		if(isEnding)
+		}
+		if(isEnding) {
 			temp += " I am a ending state";
-		if(isKleeneClosure)
+		}
+		if(isKleeneClosure) {
 			temp += " I am a kleene closure state";
-		if(isConcurrentStart)
+		}
+		if(isConcurrentStart) {
 			temp += " 我是并发事件的开始事件";
-		if(isConcurrentEnding)
+		}
+		if(isConcurrentEnding) {
 			temp += " 我是并发事件的结束事件";
+		}
 		temp += " My state type is: " + this.stateType;
 		temp += "\n my description file = " + this.nfaLine;
 		return "This is the " + order + " state, requiring events of " + eventType
 			+" event type, "+ temp;
 	}
-	//返回是否能开启一个新区域（1、事件类型是否符合；2、
-	public boolean canStartWithEvent(Event e) throws EvaluationException{
-	
-		//不是B返回false
-		if(!e.getEventType().equalsIgnoreCase(this.eventType)){
-			
-			return false;
-		}//
-		if(this.edges[0].evaluatePredicate(e,e)){
-			return true;
+
+
+	/**
+	 * 函数注释：判断是否可以启动一个事件。
+	 *
+	 * @param e 事件对象，包含事件类型等信息。
+	 * @return 如果事件类型匹配并且第一个边的谓词评估为 true，则返回 true；否则返回 false。
+	 * @throws EvaluationException 在谓词评估过程中发生异常时抛出 EvaluationException 异常。
+	 */
+	public boolean canStartWithEvent(Event e) throws EvaluationException {
+	// 条件注释：检查事件状态是否为 "normal"，且事件类型是否与定义的 eventType 匹配
+		// 条件注释：检查事件状态是否为 "normal"，且事件类型是否与定义的 eventType 匹配
+		if (this.getEventType().length() == 1) {
+			// 如果事件类型长度为 1，执行以下逻辑
+			if (!e.getEventType().equalsIgnoreCase(this.eventType)) {
+				// 如果事件类型与定义的 eventType 不匹配，返回 false
+				return false;
+			}
 		}
+
+// 条件注释：使用第一个边的谓词评估事件
+		if (this.edges[0].evaluatePredicate(e, e)) {
+			// 如果第一个边的谓词评估为 true，执行以下逻辑
+			return true; // 返回 true，表示事件符合启动条件
+		}
+
+// 如果前面的条件都不满足，返回 false，表示事件不符合启动条件
 		return false;
 
 	}
+
 
 	
 	
@@ -373,7 +397,20 @@ public class State {
 	public boolean isStart() {
 		return isStart;
 	}
+	/**
+	 * @return the isConcurrentStart
+	 */
+	public boolean isConcurrentStart() {
+		return isConcurrentStart;
+	}
 
+
+	/**
+	 * @param isConcurrentStart the isStart to set
+	 */
+	public void setConcurrentStart(boolean isConcurrentStart) {
+		this.isConcurrentStart = isConcurrentStart;
+	}
 
 	/**
 	 * @param isStart the isStart to set
@@ -381,8 +418,6 @@ public class State {
 	public void setStart(boolean isStart) {
 		this.isStart = isStart;
 	}
-
-
 	/**
 	 * @return the isEnding
 	 */
@@ -390,6 +425,12 @@ public class State {
 		return isEnding;
 	}
 
+	/**
+	 * @return the isConcurrentEnding
+	 */
+	public boolean isConcurrentEnding() {
+		return isConcurrentEnding;
+	}
 
 	/**
 	 * @param isEnding the isEnding to set
@@ -398,6 +439,13 @@ public class State {
 		this.isEnding = isEnding;
 	}
 
+
+	/**
+	 * @param isConcurrentEnding the isEnding to set
+	 */
+	public void setConcurrentEnding(boolean isConcurrentEnding) {
+		this.isConcurrentEnding = isConcurrentEnding;
+	}
 
 	/**
 	 * @return the isKleeneClosure

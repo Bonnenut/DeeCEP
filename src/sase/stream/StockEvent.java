@@ -45,7 +45,7 @@ public class StockEvent implements Event{
 	 * Event type
 	 */
 	String eventType;
-	
+	String stateType;
 	/**
 	 * Symbol, an attribute
 	 */
@@ -94,6 +94,7 @@ public class StockEvent implements Event{
 	 * Returns the attribute value for the given attribute
 	 * @param attributeName The name of the attribute to be returned
 	 */
+	@Override
 	public int getAttributeByName(String attributeName) {
 		if(attributeName.equalsIgnoreCase("symbol"))
 			return this.symbol;
@@ -116,21 +117,28 @@ public class StockEvent implements Event{
 		// TODO Auto-generated method stub
 		return this.eventType;
 	}
+	@Override
+	public String getStateType() {
+		// TODO Auto-generated method stub
+		return this.stateType;
+	}
 
-
+	@Override
 	public int getId() {
 		// TODO Auto-generated method stub
 		return this.id;
 	}
 
 
+	@Override
 	public int getTimestamp() {
 		// TODO Auto-generated method stub
 		return this.timestamp;
 		
 	}
 	
-	public String toString() {
+	@Override
+    public String toString() {
 		return "ID = "+ id + "\tTimestamp = " + timestamp
 		+ "\tSymbol = " + this.symbol + "\tPrice = " + price + "\tVolume = " + volume;
 	}
@@ -180,6 +188,7 @@ public class StockEvent implements Event{
 	/**
 	 * @param id the id to set
 	 */
+	@Override
 	public void setId(int id) {
 		this.id = id;
 	}
@@ -200,11 +209,20 @@ public class StockEvent implements Event{
 
 
 
-	
+	/**
+	 * @param stateType the stateType to set
+	 */
+	public void setStateTypeType(String stateType) {
+		this.stateType = stateType;
+	}
+
+
+
 
 	/**
 	 * Clones the event
 	 */
+	@Override
 	public Object clone(){
 		StockEvent o = null;
 		try {
@@ -219,6 +237,7 @@ public class StockEvent implements Event{
 	/* (non-Javadoc)
 	 * @see edu.umass.cs.sase.mvc.model.Event#getAttributeByNameDouble(java.lang.String)
 	 */
+	@Override
 	public double getAttributeByNameDouble(String attributeName) {
 		// TODO Auto-generated method stub
 		return 0;
@@ -227,6 +246,7 @@ public class StockEvent implements Event{
 	/* (non-Javadoc)
 	 * @see edu.umass.cs.sase.mvc.model.Event#getAttributeByNameString(java.lang.String)
 	 */
+	@Override
 	public String getAttributeByNameString(String attributeName) {
 		// TODO Auto-generated method stub
 		return null;
@@ -235,6 +255,7 @@ public class StockEvent implements Event{
 	/* (non-Javadoc)
 	 * @see edu.umass.cs.sase.mvc.model.Event#getAttributeValueType(java.lang.String)
 	 */
+	@Override
 	public int getAttributeValueType(String attributeName) {
 		// TODO Auto-generated method stub
 		return 0;

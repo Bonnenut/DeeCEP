@@ -75,6 +75,7 @@ public interface Event {
 	 * 
 	 * @return self description
 	 */
+	@Override
 	public String toString();
 	
 	/**
@@ -88,6 +89,12 @@ public interface Event {
 	 * @return the event type
 	 */
 	public String getEventType();
+
+	/**
+	 *
+	 * @return the state type
+	 */
+	public String getStateType();
 
 	/**
 	 * 

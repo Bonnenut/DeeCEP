@@ -50,7 +50,7 @@ public class ABCEvent implements Event{
 	 * event type
 	 */
 	String eventType;
-	
+	String stateType;
 	/**
 	 * Price, an attribute
 	 */
@@ -80,6 +80,7 @@ public class ABCEvent implements Event{
 	/**
 	 * @return the cloned event
 	 */
+	@Override
 	public Object clone(){
 		ABCEvent o = null;
 		try {
@@ -94,6 +95,7 @@ public class ABCEvent implements Event{
 	/**
 	 * @return the id
 	 */
+	@Override
 	public int getId() {
 		return id;
 	}
@@ -101,6 +103,7 @@ public class ABCEvent implements Event{
 	/**
 	 * @param id the id to set
 	 */
+	@Override
 	public void setId(int id) {
 		this.id = id;
 	}
@@ -108,6 +111,7 @@ public class ABCEvent implements Event{
 	/**
 	 * @return the timestamp
 	 */
+	@Override
 	public int getTimestamp() {
 		return timestamp;
 	}
@@ -126,6 +130,17 @@ public class ABCEvent implements Event{
     public String getEventType() {
 		return eventType;
 	}
+
+
+	/**
+	 * @return the eventType
+	 */
+	@Override
+	public String getStateType() {
+		return stateType;
+	}
+
+
 
 	/**
 	 * @param eventType the eventType to set
@@ -176,6 +191,7 @@ public class ABCEvent implements Event{
 		this.symbol = symbol;
 	}
 
+	@Override
 	public String toString(){
 		return "ID="+ id + "    Timestamp=" + timestamp + "    Symbol=" + symbol
 			+ "    eventType=" + eventType + "    Price=" + price + "    Volume=" + volume;
@@ -184,25 +200,32 @@ public class ABCEvent implements Event{
 	/* (non-Javadoc)
 	 * @see edu.umass.cs.sase.mvc.model.Event#getAttributeByName(java.lang.String)
 	 */
+	@Override
 	public int getAttributeByName(String attributeName) {
 
-		if(attributeName.equalsIgnoreCase("volume"))
+		if(attributeName.equalsIgnoreCase("volume")) {
 			return volume;
-		if(attributeName.equalsIgnoreCase("symbol"))
+		}
+		if(attributeName.equalsIgnoreCase("symbol")) {
 			return symbol;
-		if(attributeName.equalsIgnoreCase("price"))
+		}
+		if(attributeName.equalsIgnoreCase("price")) {
 			return price;
-		if(attributeName.equalsIgnoreCase("id"))
+		}
+		if(attributeName.equalsIgnoreCase("id")) {
 			return this.id;
-		if(attributeName.equalsIgnoreCase("timestamp"))
+		}
+		if(attributeName.equalsIgnoreCase("timestamp")) {
 			return this.timestamp;
-		
+		}
+
 		return -1;
 	}
 
 	/* (non-Javadoc)
 	 * @see edu.umass.cs.sase.mvc.model.Event#getAttributeByNameString(java.lang.String)
 	 */
+	@Override
 	public String getAttributeByNameString(String attributeName) {
 		// TODO Auto-generated method stub
 		return null;
@@ -210,6 +233,7 @@ public class ABCEvent implements Event{
 	/* (non-Javadoc)
 	 * @see edu.umass.cs.sase.mvc.model.Event#getAttributeValueType(java.lang.String)
 	 */
+	@Override
 	public int getAttributeValueType(String attributeName) {
 		// TODO Auto-generated method stub
 		return 0;
@@ -218,6 +242,7 @@ public class ABCEvent implements Event{
 	/* (non-Javadoc)
 	 * @see edu.umass.cs.sase.mvc.model.Event#getAttributeByNameDouble(java.lang.String)
 	 */
+	@Override
 	public double getAttributeByNameDouble(String attributeName) {
 		// TODO Auto-generated method stub
 		return 0;

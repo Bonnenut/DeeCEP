@@ -1,8 +1,6 @@
 
 Z
 *src/sase/engine/ValueVectorElementAvg.java,3\6\361b11ccb5ae65c59494e82ea8e36e8325402c62
-N
-src/sase/query/MultiQuery.java,2\4\24f38158b0d2804d886e38e6f50ff5620b01c83d
 I
 .idea/leetcode/editor.xml,4\e\4e1d1083192753a7663628e0017ffffe55ae10ed
 Z
@@ -78,13 +76,15 @@ J
 +src/sase/stream/ParseStockStreamConfig.java,3\f\3f705a3d1d2955682eb3dd3949409dfeeff1c37d
 7
 pom.xml,4\4\442292b8a7efeabbe4cc176709b833b1792140ec
-K
-src/sase/stream/Stream.java,8\7\87cc73ce76c76e9df544d86d5a3ce4167cc67dfd
 H
 example/test/test.stream,f\7\f76bfcd0ab700c2ffa96e158faac6ef7182272eb
 M
 example/test/multiquery.query,0\8\08a4c7a66624fa5f3723f6cdc7004ec3b112e4fe
 L
 src/sase/engine/RunPool.java,8\6\8669626503152da45ced379b8bee97048162cce9
-J
-src/sase/stream/Event.java,0\8\08bc5eea674b519f66ef1552a48c5cc70f290c2b
+?
+src/logback.xml,3\7\37218141019983ecb6e6fba7f87df8cc139cd4c6
+8
+SASE.iml,3\8\388cd02494e72d72122a5c69ee58a9ec2c1ac1b7
+U
+%src/sase/stream/StreamController.java,3\4\342fd7633688e74b29efad0002ecffc2e756054e

@@ -45,6 +45,8 @@ public class MultiQuery {
                     if(nfa.size > 0){
                         nfa.states[0].setStart(true);
                         nfa.states[nfa.size-1].setEnding(true);
+                        nfa.states[0].setConcurrentStart(true);
+                        nfa.states[nfa.size-1].setConcurrentEnding(true);
                     }
                     nfa.testNegation();;
                     nfa.compileValueVectorOptimized();

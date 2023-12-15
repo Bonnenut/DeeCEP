@@ -207,17 +207,18 @@ public class NFA {
 		}
 		
 		if(this.size > 0){
-			states[0].setStart(true);
-			states[size -1].setEnding(true);
-//			//如果事件1、2为同时刻事件，则把第二个事件也设为setStart
-//			if(this.states[1].stateType == "concurrent"){
-//				states[1].setStart(true);
-//			}
-//			//如果事件最后一个事件、次最后事件，为同时刻事件，则把次最后事件也设为setEnding
-//			if(this.states[size-1].stateType == "concurrent"){
-//				states[1].setStart(true);
-//				states[size-2].setEnding(true);
-//			}
+			if(this.states[0].stateType == "normal") {
+				states[0].setStart(true);
+			}
+			if(this.states[size - 1].stateType == "normal") {
+				states[size - 1].setEnding(true);
+			}
+			if(this.states[0].stateType == "concurrent") {
+				states[0].setConcurrentStart(true);
+			}
+			if(this.states[size - 1].stateType == "concurrent") {
+				states[size - 1].setConcurrentEnding(true);
+			}
 		}
 	}
 
