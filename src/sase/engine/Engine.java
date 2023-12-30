@@ -333,7 +333,7 @@ public class Engine {
                     //按时间戳对事件进行分组
                     tsGroups = groupEventsByTimestamp(batchEvents);
                     //给分好组的事件包，排队送入NFA
-                    eventGoNFA(tsGroups);
+                    eventGoNFA(tsGroups);cc
                     eventsProcessed = 0; // 重置计数器
                     batchEvents.clear(); // 清空当前批次的事件列表
                 }
