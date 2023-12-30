@@ -333,7 +333,7 @@ public class Engine {
                     //按时间戳对事件进行分组
                     tsGroups = groupEventsByTimestamp(batchEvents);
                     //给分好组的事件包，排队送入NFA
-                    eventGoNFA(tsGroups);cc
+                    eventGoNFA(tsGroups);
                     eventsProcessed = 0; // 重置计数器
                     batchEvents.clear(); // 清空当前批次的事件列表
                 }
@@ -383,13 +383,13 @@ public class Engine {
             Map<String, List<Event>> eventGroups = timestampEntry.getValue();
 
             // 判断本时间戳组 是否有多个事件
-            if (eventGroups.size() > 1) {// [3] concurrent事件 创建新运行
-                // [3]创建新的运行，以当前事件为起点
+            if (eventGroups.size() > 1) {
                 //eventGroups是一个哈希map，key = 事件类型，value = ABCEvent
                 //eventGroups是一个时间戳下的事件包
-                createNewRunByDeeCEP(eventGroups);
                 // [1] 部分匹配
                 evaluateRunsForSkipTillNextByDeeCEP(eventGroups);
+                // [3]创建新的运行，以当前事件为起点
+                createNewRunByDeeCEP(eventGroups);
             } else {// [3] normal事件 创建新运行
                 // 此时只有一个键值对
                 for (Map.Entry<String, List<Event>> innerEntry : eventGroups.entrySet()) {
@@ -402,7 +402,7 @@ public class Engine {
                     this.createNewRun(e);
 
                     // [1] 部分匹配
-                    this.evaluateRunsForSkipTillNextByDeeCEP(eventGroups);
+                    this.evaluateRunsForSkipTillNext(e);
                 }
             }
 
@@ -549,7 +549,7 @@ public class Engine {
             // 获取当前运行的最后一个事件的时间戳。
             lasttimestamp = r.getLastNEventTimeStamp();
             //谓词检查，一个时间戳下面的 事件包 列表中的部分匹配
-            this.evaluateEventForSkipTillNextByDeeCEPByDeeCEP(eventGroups, r);
+            this.evaluateEventForSkipTillNextByDeeCEP(eventGroups, r);
         }
     }
 
@@ -895,7 +895,7 @@ public class Engine {
      * eventGroups是一个哈希map，key = 事件类型，value = ABCEvent
      * eventGroups是一个时间戳下的事件包
      */
-    public void evaluateEventForSkipTillNextByDeeCEPByDeeCEP(Map<String, List<Event>> eventGroups, Run r) throws CloneNotSupportedException {
+    public void evaluateEventForSkipTillNextByDeeCEP(Map<String, List<Event>> eventGroups, Run r) throws CloneNotSupportedException {
         // 标识谓词检查结果，默认为 true。
         boolean checkResult = true;
         // 当前在NFA的几个状态
@@ -919,8 +919,8 @@ public class Engine {
             // 检查时间窗口是否通过，事件包来的时候没有时间戳，但是事件包的时间戳都一样，拿第一个事件的时间戳就行
             Event e = eventGroups.values().iterator().next().get(0);
             checkResult = this.checkTimeWindow(e, r);
-             System.out.println("the time window is ok");
-             //12.28
+            System.out.println("the time window is ok");
+            //12.28
             if (checkResult) { // 如果谓词和时间窗口都通过。
 //                this.buffer.bufferEvent(e); // 将事件添加到缓冲区。
                 int oldState = 0;
@@ -1297,12 +1297,14 @@ public class Engine {
                 newRun.initializeRun(this.nfa);
                 // 更新运行的数量
                 numberOfRuns++;
-
+                int numberOfConcurrentInThisEventList = eventList.size();
+                int i=0;
                 for (Event e : eventList) {
                     this.buffer.bufferEvent((Event) e);
                     //[0,0,0]->[-2,0,0]
                     // 将事件添加到新运行中
-                    newRun.addEvent((Event) e);
+                    i++;
+                    newRun.addConcurrentEvent((Event) e, numberOfConcurrentInThisEventList,i);
                 }
 
                 // 将新运行添加到活动运行列表中
@@ -1446,10 +1448,10 @@ public class Engine {
 
         // 检查事件类型是否匹配
         List<List<Event>> combinations = stateInstance.findCombinations(eventGroups, s.getEventType());
-        if (combinations == null||combinations.isEmpty()) {
+        if (combinations == null || combinations.isEmpty()) {
             // 如果事件类型不匹配，返回false
             return false;
-        }else{
+        } else {
             return true;
         }
         //注销了边上的谓词计算
