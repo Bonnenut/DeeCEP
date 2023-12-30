@@ -304,7 +304,7 @@ public class NFA {
 					State lastState = getStates(currentStateNumber-1);
 					// 将当前状态合并到已存在的状态
 					states[currentStateNumber-1].setEventType(lastState.getEventType() + eventType);
-//					currentStateNumber ++;
+//					currentStateNumber ++;试试
 				}else{// 创建一个新的状态来表示同时发生的事件组合
 					this.states[currentStateNumber] = new State(i+1, stateTag, eventType, "concurrent");
 					currentStateNumber  ++;
