@@ -1,0 +1,3 @@
+PATTERN SEQ(B^ b,C^ c, D c,B^ d,C^ a,D c)
+WHERE skip-till-next-match
+WITHIN 15
