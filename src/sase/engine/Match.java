@@ -59,16 +59,19 @@ public class Match {
 	 * @param nfa the nfa for the query
 	 * @param buffer the event buffer
 	 */
-	public Match(Run r, NFA nfa, EventBuffer buffer){
-		
-		
-		this.events = new Event[r.getCount()];
-		for(int i = 0; i < r.getCount(); i ++){
-			this.events[i] = buffer.getEvent(r.getEventIds().get(i));
-		}
-		this.nfa = nfa;
+	public Match(Run r, NFA nfa, EventBuffer buffer) {
+		ArrayList<Integer> eventIds = r.getEventIds();
+		this.events = new Event[eventIds.size()];
 
+		for (int i = 0; i < eventIds.size(); i++) {
+			int eventId = eventIds.get(i);
+			Event event = buffer.getEvent(eventId);
+			this.events[i] = event;
+		}
+
+		this.nfa = nfa;
 	}
+
 	/**
 	 * Constructor, used by the sharing engine
 	 * @param eventList the events for this match

@@ -69,7 +69,7 @@ public class CommandLineUI {
 		String nfaFileLocation = "example\\test\\test.query";
 		String streamConfigFile = "example\\test\\test.stream";
 
-		ConfigFlags.printResults = false;
+		ConfigFlags.printResults = true;
 
 		String engineType = null;
 		if(args.length > 0){

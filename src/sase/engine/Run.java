@@ -199,11 +199,11 @@ public class Run implements Cloneable {
         if (!this.isFull) {
             return false;
         }
-        for (int i = 0; i < state.length; i++) {
-            if (state[i] != 2) {
-                return false;
-            }
-        }
+//        for (int i = 0; i < state.length; i++) {
+//            if (state[i] != 2) {
+//                return false;
+//            }
+//        }
         this.isComplete = true;
         return true;
     }
@@ -228,12 +228,10 @@ public class Run implements Cloneable {
 			if (currentState == this.nfa.getSize() - 1) {
 				this.setFull(true);
 			} else if(i==numberOfConcurrentInThisEventList){//不是查询的最后一个事件，	currentState+1；
-				this.count++;
 				state[currentState] = -1;
 				this.currentState++;
 			}
-
-
+            this.count++;
         }
         //查询的第一个事件，记录初始事件用于计算时间窗口；不是第一个事件不进入
         if (this.count == 1) {
