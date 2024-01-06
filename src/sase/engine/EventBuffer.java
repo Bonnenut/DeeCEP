@@ -25,7 +25,6 @@
 package sase.engine;
 
 import java.util.HashMap;
-import java.util.concurrent.ConcurrentHashMap;
 
 import sase.stream.Event;
 
@@ -73,6 +72,16 @@ public class EventBuffer {
 	public void clearallEvents() {
 		buffer.clear();
 //		System.out.println(map);
+	}
+
+    public int size() {
+        return buffer.size();
+    }
+
+
+//取出第i个元素
+	public Event get(int i) {
+		return buffer.get(i);
 	}
 }
 

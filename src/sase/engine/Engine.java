@@ -55,6 +55,8 @@ public class Engine {
      * The event buffer
      */
     EventBuffer buffer;
+    // 定义滑动缓存swipeBuffer
+    LinkedList<Event> swipeBuffer = new LinkedList<>();
     /**
      * The event sameBuffer
      *
@@ -182,7 +184,7 @@ public class Engine {
      * @throws EvaluationException
      */
     public void runSkipTillAnyEngine() throws CloneNotSupportedException, EvaluationException {
-        if (!ConfigFlags.processConcurrentEventStream) {
+        if (!ConfigFlags.processUnoderConcurrentEventStream) {
             Event e = null;
             long currentTime = 0;
             while ((e = this.input.popEvent()) != null) {// evaluate event one by one
@@ -240,13 +242,18 @@ public class Engine {
      *                    <p>
      *                    内层 Map（键：事件类型）：
      *                    键：String，表示事件的类型。
-     *                    值：List<ABCEvent>，表示具有相同时间戳和事件类型的一组事件。
+     *                    值：List<Event>，表示具有相同时间戳和事件类型的一组事件。
+     * @return 分组后的事件Map
      * @author Dee
      */
     public Map<Integer, Map<String, List<Event>>> groupEventsByTimestamp(List<Event> batchEvents) {
+        // 使用 Java 8+ 中的 Stream API 处理事件列表
         return batchEvents.stream()
+                // 使用 groupingBy 收集器按指定分类函数对元素进行分组
                 .collect(Collectors.groupingBy(
+                        // 外层 groupingBy，按事件的时间戳分组
                         Event::getTimestamp,
+                        // 内层 groupingBy，按事件类型分组
                         Collectors.groupingBy(Event::getEventType)
                 ));
     }
@@ -288,7 +295,7 @@ public class Engine {
      */
     public void runSkipTillNextEngine() throws CloneNotSupportedException, EvaluationException {
         // arg[3]：运行传统sase
-        if (!ConfigFlags.processConcurrentEventStream) {
+        if (ConfigFlags.sase) {
             Event e = null;
             long currentTime = 0;
             // 逐个评估事件
@@ -314,31 +321,58 @@ public class Engine {
          * pop事件进来，存到batchEvents中
          * 存够batchSize了，开始分组
          * 按时间戳对事件进行分组：groupEventsByTimestamp
-         *	给分好组的事件包，排队送入NFA，还没写
+         *	给分好组的事件包，排队送入NFA
          */
-        if (ConfigFlags.processConcurrentEventStream) {
+        if (ConfigFlags.processUnoderConcurrentEventStream) {
             Event e = null;
             //每次从流中取事件的数量，以后改成能在环境中输入
             int batchSize = 30;
-            // 计数器，用于追踪每个批次处理的事件数量
+//            // 计数器，用于追踪每个批次处理的事件数量
             int eventsProcessed = 0;
-            // batchEvents用于存储当前批次的事件
+//            // batchEvents用于存储当前批次的事件
             List<Event> batchEvents = new ArrayList<>();
             Map<Integer, Map<String, List<Event>>> tsGroups = null; // 在这里声明 tsGroups
+            //定义一个单独的event用来存储上一个事件
             while ((e = this.input.popEvent()) != null) {// evaluate event one by one
                 // 将事件添加到当前批次
                 batchEvents.add(e);
                 eventsProcessed++; // 先自增
                 if (eventsProcessed == batchSize) {
-                    //按时间戳对事件进行分组
+//                    //按时间戳对事件进行分组
+//                    //给分好组的事件包，排队送入NFA
                     tsGroups = groupEventsByTimestamp(batchEvents);
-                    //给分好组的事件包，排队送入NFA
                     eventGoNFA(tsGroups);
                     eventsProcessed = 0; // 重置计数器
                     batchEvents.clear(); // 清空当前批次的事件列表
                 }
             }
         }
+        /**
+         * 处理含有并发事件的事件流
+         * DeeCEP主要循环入口
+         *
+         */
+        if (ConfigFlags.processOderConcurrentEventStream) {
+            Event e = null;
+            int tw = 3;
+            while ((e = this.input.popEvent()) != null) {// evaluate event one by one
+                // 检查数据结构大小是否超过最大限制
+                if (swipeBuffer.size() > 2 * tw + 1) {
+                    // 删除最早进来的事件
+                    swipeBuffer.removeFirst();
+                }
+                // 检查即将处理的事件后面是否有tw个事件
+                if (swipeBuffer.size() < tw + 1) {
+                    // 输出倒数第tw+1个数据
+                } else if (swipeBuffer.size() >= tw + 1) {
+                    //将事件p送入NFA
+                    Event p = swipeBuffer.get(swipeBuffer.size() - tw - 1);
+                    oneEventGoNFA(p);
+                }
+                swipeBuffer.add(e);
+            }
+        }
+
         //分区 没用
         // 如果存在分区属性
         if (ConfigFlags.hasPartitionAttribute) {
@@ -362,7 +396,30 @@ public class Engine {
                 Profiling.numberOfEvents += 1;
             }
         }
+
     }
+
+    /**
+     * @author Dee
+     * 单个事件e送进来
+     * [1]部分匹配
+     * [2]清理缓存
+     * [3]创建新运行
+     */
+    public void oneEventGoNFA(Event e) throws EvaluationException, CloneNotSupportedException {
+        //进来一个单个事件
+        //遍历PM列表
+        //如果等
+        // [1] 部分匹配
+        this.oneEventEvaluateRunsForSkipTillNext(e);
+        // [2]如果有需要删除的运行，执行清理操作
+        if (this.toDeleteRuns.size() > 0) {
+            this.cleanRuns();
+        }
+        // [3]创建新的运行，以当前事件为起点
+        this.oneEventCreateNewRun(e);
+    }
+
 
     /**
      * @author Dee
@@ -549,6 +606,31 @@ public class Engine {
             lasttimestamp = r.getLastNEventTimeStamp();
             //谓词检查，一个时间戳下面的 事件包 列表中的部分匹配
             this.evaluateEventForSkipTillNextByDeeCEP(eventGroups, r);
+        }
+    }
+
+    /**
+     * This method will iterate all existing runs for the current event, for .
+     * 该方法用于遍历当前事件的所有现有运行，用于skip-till-next-match的逻辑。
+     *
+     * @param e 当前正在评估的事件。
+     * @throws CloneNotSupportedException 如果对某个对象不支持克隆操作。
+     * @throws EvaluationException        如果在评估过程中发生错误。
+     */
+    public void oneEventEvaluateRunsForSkipTillNext(Event e) throws CloneNotSupportedException, EvaluationException {
+        // 初始化一个变量以存储 activeRuns 列表的大小。
+        int size = this.activeRuns.size();
+        // 遍历每个活动运行。
+        for (int i = 0; i < size; i++) {
+            // 从 activeRuns 列表获取当前运行。
+            Run r = this.activeRuns.get(i);
+            // 检查当前运行是否已满，如果是，则跳过当前迭代，继续下一个活动运行。
+            if (r.isFull()) {
+                continue;
+            }
+            // 获取当前运行的最后一个事件的时间戳。
+            lasttimestamp = r.getLastNEventTimeStamp();
+            this.oneEventEvaluateEventForSkipTillNext(e, r);
         }
     }
 
@@ -902,18 +984,14 @@ public class Engine {
         // 获取当前状态。
         State s = this.nfa.getStates(currentState);
         List<List<Event>> combinations = null;
-        // 如果是并发边+事件包，则进行递归+回溯
-//        if (s.getStateType().equalsIgnoreCase("concurrent")) {
-            combinations = this.checkPredicateByDeeCEP(eventGroups, r);
-            if (combinations == null || combinations.isEmpty()) {
-                // 如果事件类型不匹配，返回false
-                checkResult = false;
-            } else {
-                checkResult = true;
-            }
-//        } else {// 如果是单边+事件包，false
-//            checkResult = false;
-//        }
+        combinations = this.checkPredicateByDeeCEP(eventGroups, r);
+        if (combinations == null || combinations.isEmpty()) {
+            // 如果事件类型不匹配，返回false
+            checkResult = false;
+        } else {
+            checkResult = true;
+        }
+
 
         // 当前时间戳与当前部分匹配的最后时间戳不同,注释掉 if 语句，作为正常的 SASE 逻辑, 正常情况下，该 if 语句用于处理并发逻辑，因此暂时注释掉。
         // if (e.getTimestamp() != lasttimestamp) {
@@ -979,7 +1057,93 @@ public class Engine {
                     }
                 }
             }
-        } else{
+        } else {
+            this.toDeleteRuns.add(r);
+        }
+//
+    }
+
+    /**
+     * This method evaluates an event against a run, for skip-till-next-match
+     * 滑动缓存区中的中间事件，拿出来与activeruns列表中的每个PM进行比对，发现pm在等并发事件，就回头取滑动缓存区取附近的并发事件
+     *
+     * @param e 被评估的事件。
+     * @param r 被评估事件的运行。
+     * @throws CloneNotSupportedException 如果对某个对象不支持克隆操作。
+     */
+    public void oneEventEvaluateEventForSkipTillNext(Event e, Run r) throws CloneNotSupportedException {
+        // 标识谓词检查结果，默认为 true。
+        boolean checkResult = true;
+        // 已完成NFA的几个状态
+        int currentState = r.getCurrentState();
+        // 获取当前状态。
+        State s = this.nfa.getStates(currentState);
+        List<List<Event>> combinations = null;
+        // 如果是并发边，回滑动缓存区取并发事件进行集合与集合的比较
+        if (s.getStateType().equalsIgnoreCase("concurrent")) {
+            State stateInstance = new State();  // 创建 State 类的对象
+            // 检查事件类型是否匹配
+            combinations = stateInstance.swipeBufferFindCombinations(swipeBuffer, s.getEventType());
+            if (combinations == null || combinations.isEmpty()) {
+                // 如果事件类型不匹配，返回false
+                checkResult = false;
+            } else {
+                checkResult = true;
+                // 检查时间窗口是否通过，事件包来的时候没有时间戳，但是事件包的时间戳都一样，拿第一个事件的时间戳就行
+            }
+        } else {//如果是普通边进行普通谓词检查
+            checkResult = this.checkPredicate(e, r); // 检查普通谓词
+        }
+        // 当前时间戳与当前部分匹配的最后时间戳不同,注释掉 if 语句，作为正常的 SASE 逻辑, 正常情况下，该 if 语句用于处理并发逻辑，因此暂时注释掉。
+        // if (e.getTimestamp() != lasttimestamp) {
+        if (checkResult) { // 如果谓词和时间窗口都通过。
+            int numberOfConcurrentInThisEventList = combinations.size();
+            for (List<Event> eventList : combinations) {
+                // 复制当前的 r，每个 r 都有相同的事件
+                Run copiedR = (Run) r.clone(); // 假设 Run 类有一个 copy 方法用于复制对象
+
+                int i = 0;
+                for (Event event : eventList) {
+                    checkResult = this.checkTimeWindow(event, copiedR); // 使用复制后的 r
+                    if (checkResult) {
+                        this.buffer.bufferEvent(event);
+                        copiedR.addConcurrentEvent(event, numberOfConcurrentInThisEventList, i);
+                    }
+                    i++;
+                }
+
+                if (copiedR.isFull()) {
+                    // 检查匹配（全部通过）并输出匹配结果。
+                    if (copiedR.checkMatch()) {
+                        // 创建 Match 对象
+                        Match match = new Match(copiedR, this.nfa, this.buffer);
+                        // 输出匹配结果
+                        this.outputMatch(match);
+                        Profiling.totalRunLifeTime += (System.nanoTime() - copiedR.getLifeTimeBegin());
+                        this.toDeleteRuns.add(copiedR);
+                    }
+                } else {
+                    // 检查运行是否继续。
+                    if (this.checkProceed(copiedR)) {
+                        // 如果运行可以继续，执行以下操作：
+                        // 克隆当前运行，创建一个新的运行对象
+                        Run newRun = this.cloneRun(copiedR);
+                        // 将新运行添加到活跃运行集合中
+                        this.activeRuns.add(newRun);
+                        // 检查当前运行是否已完成
+                        if (copiedR.isComplete()) {
+                            // 如果当前运行已完成，执行以下操作：
+                            // 输出匹配项，将当前运行、NFA和缓冲区传递给 Match 对象
+                            this.outputMatch(new Match(copiedR, this.nfa, this.buffer));
+                            // 更新总运行生命周期的性能分析信息
+                            Profiling.totalRunLifeTime += (System.nanoTime() - copiedR.getLifeTimeBegin());
+                            // 将已完成的运行添加到待删除运行集合中
+                            this.toDeleteRuns.add(copiedR);
+                        }
+                    }
+                }
+            }
+        } else {
             this.toDeleteRuns.add(r);
         }
 //
@@ -1000,10 +1164,6 @@ public class Engine {
         int currentState = r.getCurrentState(); // 获取当前运行的状态。
         State s = this.nfa.getStates(currentState); // 获取当前状态。
 
-        // 如果是并发边，则进行位运算
-        // if(s.getStateType().equalsIgnoreCase("concurrent")){
-        //     checkResult = this.checkConcurrentPredicate(e, r);
-        // }else{//如果是普通边进行普通谓词检查
         checkResult = this.checkPredicate(e, r); // 检查普通谓词
         // }
 
@@ -1265,6 +1425,80 @@ public class Engine {
      * @param e 当前事件。
      * @throws EvaluationException
      */
+    public void oneEventCreateNewRun(Event e) throws EvaluationException {
+        List<Event> eventGroups = new ArrayList();
+        // 检查NFA的初始状态是否能够以给定事件开始
+        // [1]PM在等并发事件
+        if ("concurrent".equals(this.nfa.getStates()[0].getStateType())) {
+            //如果能使NFA进入下一个状态的事件类型是并发事件，
+            //那就去滑动缓存区找前后几个事件打包送去NFA
+            //考虑怎么删除滑动缓存区的事件->想好了，遍历完activeRuns所有PM后删除
+
+            // 遍历 swipeBuffer,把swipeBuffer中的元素都倒腾到eventGroups中
+            for (int i = 0; i < swipeBuffer.size(); i++) {
+                // 对每个事件执行操作
+                Event event = swipeBuffer.get(i);
+                eventGroups.add(event);
+            }
+            boolean checkswipeBufferCanStart;
+            //swipeBufferCanStartWithEventByDeeCEP 方法，而这个方法属于 State 类的实例，这个实例是通过 this.nfa.getStates()[0] 获取的。
+            //没找到组合，也就是说无匹配结果，swipeBuffer中的事件不能开启新NFA
+            List<List<Event>> combination = this.nfa.getStates()[0].swipeBufferCanStartWithEventByDeeCEP(eventGroups);
+            checkswipeBufferCanStart = combination != null && !combination.isEmpty();
+            // 检查NFA的初始状态是否能够以给定事件开始
+            if (checkswipeBufferCanStart) {
+                // combinations：
+                // 0：B1C2
+                // 0：B3C2
+                // eventList：0：B1C2
+                // 从engineRunController获取当前运行
+                Run newRun;
+
+                for (List<Event> eventList : combination) {
+                    // 在每次迭代中创建一个新的运行
+                    newRun = this.engineRunController.getRun();
+                    newRun.initializeRun(this.nfa);
+                    // 更新运行的数量
+                    numberOfRuns++;
+                    int numberOfConcurrentInThisEventList = eventList.size();
+                    int i = 0;
+                    for (Event event : eventList) {
+                        this.buffer.bufferEvent(event);
+                        //[0,0,0]->[-2,0,0]
+                        // 将事件添加到新运行中
+                        i++;
+                        newRun.addConcurrentEvent(event, numberOfConcurrentInThisEventList, i);
+                    }
+                    // 将新运行添加到活动运行列表中
+                    this.activeRuns.add(newRun);
+                }
+            }
+
+
+            // [2]PM在等normal事件
+        } else if (this.nfa.getStates()[0].canStartWithEvent(e)) {
+
+            // 将事件缓存到运行中
+            this.buffer.bufferEvent(e);
+            // 从engineRunController获取当前运行
+            Run newRun = this.engineRunController.getRun();
+            // 使用NFA初始化新运行
+            newRun.initializeRun(this.nfa);
+            // 将事件添加到新运行中
+            newRun.addEvent(e);
+            // 更新运行的数量
+            numberOfRuns++;
+            // 将新运行添加到活动运行列表中
+            this.activeRuns.add(newRun);
+        }
+    }
+
+    /**
+     * 创建一个包含输入事件的新运行。
+     *
+     * @param e 当前事件。
+     * @throws EvaluationException
+     */
     public void createNewRun(Event e) throws EvaluationException {
         // 检查NFA的初始状态是否能够以给定事件开始
         if (this.nfa.getStates()[0].canStartWithEvent(e)) {
@@ -1296,10 +1530,10 @@ public class Engine {
         checkcombinations = combinations != null && !combinations.isEmpty();
         // 检查NFA的初始状态是否能够以给定事件开始
         if (checkcombinations) {
-// combinations：
-// 0：B1C2
-// 0：B3C2
-// eventList：0：B1C2
+            // combinations：
+            // 0：B1C2
+            // 0：B3C2
+            // eventList：0：B1C2
             // 从engineRunController获取当前运行
             Run newRun;
 

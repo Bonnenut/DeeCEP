@@ -26,18 +26,11 @@ package sase.UI;
 
 import java.io.*;
 import java.util.Objects;
-import java.util.logging.FileHandler;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 
 import net.sourceforge.jeval.EvaluationException;
 import sase.engine.ConfigFlags;
 import sase.engine.EngineController;
 import sase.engine.Profiling;
-import sase.query.*;
-import sase.stream.ABCEvent;
-import sase.stream.ParseStockStreamConfig;
 import sase.stream.StockStreamConfig;
 import sase.stream.StreamController;
 
@@ -68,8 +61,12 @@ public class CommandLineUI {
 	public static void main(String args[]) throws CloneNotSupportedException, EvaluationException, FileNotFoundException,IOException{
 		String nfaFileLocation = "example\\test\\test.query";
 		String streamConfigFile = "example\\test\\test.stream";
-
+		//是否打印结果：
 		ConfigFlags.printResults = true;
+		//3: 是否使用并发事件处理技术，并发有序事件流、并发无序事件流
+			ConfigFlags.processUnoderConcurrentEventStream = false;
+			ConfigFlags.processOderConcurrentEventStream = true;
+			ConfigFlags.sase = false;
 
 		String engineType = null;
 		if(args.length > 0){
@@ -89,11 +86,11 @@ public class CommandLineUI {
 			// 本程序的输出名字是：args[1]+结果
 			}
 		}
-		//3: 是否使用并发事件处理技术("concurrent"使用,"0"为不使用)传统SASE处理
+
 		if (args.length > 3 && Objects.equals(args[3], "concurrent")) {
-			ConfigFlags.processConcurrentEventStream = true;
+
 		} else {
-			ConfigFlags.processConcurrentEventStream = false;
+
 		}
 
 		//解析.query文件中的配置流信息，根据配置信息，流生成器生成流

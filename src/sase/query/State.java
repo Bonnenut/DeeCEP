@@ -24,13 +24,12 @@
  */
 package sase.query;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.StringTokenizer;
+import java.util.*;
 
 import sase.stream.Event;
 import net.sourceforge.jeval.EvaluationException;
+
+import static com.sun.xml.internal.bind.v2.schemagen.Util.equal;
 
 /**
  * This class represents a state from NFA.
@@ -344,12 +343,67 @@ public class State {
         return "This is the " + order + " state, requiring events of " + eventType
                 + " event type, " + temp;
     }
+    /**
+     * Dee
+     * combinations：存储找到的所有符合条件的排列组合
+     * List<Event> 与 Q 匹配版本
+     *
+     * @param eventGroups 事件列表
+     * @param Q           匹配条件
+     * @return 找到的所有排列组合
+     */
+    public List<List<Event>> swipeBufferFindCombinations(List<Event> eventGroups, String Q) {
+        Q = Q.replace("^", "");
+        // combinations：存储找到的所有符合条件的排列组合
+        List<List<Event>> combinations = new ArrayList<>();
+        // 调用辅助方法开始搜索排列组合
+        swipeBufferFindCombinationsHelper(eventGroups, Q, 0, new ArrayList<>(), combinations);
+        // 返回找到的所有排列组合
+        return combinations;
+    }
 
+    /**
+     * 递归2：辅助方法，用于递归搜索匹配的排列组合
+     *
+     * @param eventGroups        事件列表
+     * @param Q                  匹配条件
+     * @param index              当前匹配的 Q 中的位置
+     * @param currentCombination 当前已匹配的组合
+     * @param combinations       存储找到的所有符合条件的排列组合
+     */
+    private static void swipeBufferFindCombinationsHelper(List<Event> eventGroups, String Q, int index, List<Event> currentCombination, List<List<Event>> combinations) {
+        // 如果已经匹配完 Q 中的所有事件类型，将当前组合添加到结果集合中
+        if (index == Q.length()) {
+            // 在添加到结果集合之前对当前组合按照时间戳排序
+            currentCombination.sort(Comparator.comparingLong(Event::getTimestamp));
+            combinations.add(new ArrayList<>(currentCombination));
+            return;
+        }
+
+        // 获取当前 Q 中指定位置的事件类型
+        String eventType = String.valueOf(Q.charAt(index));
+
+        // 遍历 events
+        for (Event event : eventGroups) {
+            // 检查事件的类型是否匹配当前 Q 中指定位置的事件类型
+            if (equal(event.getEventType(), eventType)) {
+                // 剪枝：如果当前事件已经在组合中，跳过
+                if (!currentCombination.contains(event)) {
+                    // 将当前事件添加到组合中
+                    currentCombination.add(event);
+                    // 递归调用，继续搜索下一个事件类型
+                    swipeBufferFindCombinationsHelper(eventGroups, Q, index + 1, currentCombination, combinations);
+                    // 回溯：将添加的事件移除，尝试下一个事件
+                    currentCombination.remove(currentCombination.size() - 1);
+                }
+            }
+        }
+    }
 
     /**
      * Dee
      * combinations：存储找到的所有符合条件的排列组合
-     *
+     * Map<String, List<Event>>与Q匹配版本
      * @param eventGroups
      * @return
      */
@@ -396,7 +450,37 @@ public class State {
             }
         }
     }
+    /**
+     * 函数注释：判断是否可以启动一个事件。
+     *
+     * @param eventGroups：一个时间戳下的所有事件，以事件类型为 key的hashmap
+     * @return 如果事件类型匹配并且第一个边的谓词评估为 true，则返回 true；否则返回 false。
+     * @throws EvaluationException 在谓词评估过程中发生异常时抛出 EvaluationException 异常。
+     * @author Dee
+     */
+    public List<List<Event>> swipeBufferCanStartWithEventByDeeCEP(List<Event> eventGroups) throws EvaluationException {
+        // 条件注释：检查事件状态是否为 "normal"，且事件类型是否与定义的 eventType 匹配
 
+        //如果canStart事件的长度=1，也就是说是normal事件
+        //那么开始判断事件e的事件类型等不等于canStart的事件类型
+        //不等于返回false
+        //else：也就是说canStart事件是concurrent事件
+        //那么查看e的事件类型是否在被包含在查询中，包含则继续进行，不包含则立刻返回false
+        List<List<Event>> combinations = null;
+        if (this.getEventType().length() == 1) {
+//            // 如果canStart事件的长度=1，也就是说是normal事件
+//            if (!e.getEventType().equalsIgnoreCase(this.eventType)) {
+//                // 如果事件类型与定义的 eventType 不匹配，返回 false
+//                return false;
+//            }
+        } else {//canStart事件是concurrent事件，比如是A^B^
+            //递归+剪枝与Q集合对比
+            combinations = swipeBufferFindCombinations(eventGroups,this.eventType);
+            //combinations为空，说明没找到匹配
+        }
+
+        return combinations; // 返回 true，表示事件符合启动条件
+    }
 
     /**
      * 函数注释：判断是否可以启动一个事件。

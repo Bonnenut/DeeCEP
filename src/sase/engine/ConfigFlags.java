@@ -77,7 +77,9 @@ public class ConfigFlags {
 	 */
 	
 	public static boolean hasPartitionAttribute = false;
-	public static boolean processConcurrentEventStream;
+	public static boolean processUnoderConcurrentEventStream;
+	public static boolean sase;
+	public static boolean processOderConcurrentEventStream;
 	/**
 	 * This filed is used to denote the name of the partition attribute.
 	 */
