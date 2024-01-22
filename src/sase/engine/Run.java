@@ -173,9 +173,9 @@ public class Run implements Cloneable {
      * resets a run
      */
     void resetRun() {
-        if (this.nfa.isNeedValueVector()) {
-            this.valueVector = new ValueVectorElement[this.size][];
-        }
+//        if (this.nfa.isNeedValueVector()) {
+//            this.valueVector = new ValueVectorElement[this.size][];
+//        }
         this.nfa = null;
         this.eventIds = null;
         this.eventTimeStamps = null;

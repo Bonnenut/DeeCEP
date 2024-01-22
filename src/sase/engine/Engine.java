@@ -57,6 +57,7 @@ public class Engine {
     EventBuffer buffer;
     // 定义滑动缓存swipeBuffer
     LinkedList<Event> swipeBuffer = new LinkedList<>();
+    ArrayList<Event> removeEvents;
     /**
      * The event sameBuffer
      *
@@ -108,6 +109,7 @@ public class Engine {
     public Engine() {
         buffer = new EventBuffer();
         sameBuffer = new EventBuffer();//Dee
+        removeEvents = new ArrayList<Event>();//Dee
         engineRunController = new RunPool();
         this.activeRuns = new ArrayList<Run>();
         this.toDeleteRuns = new ArrayList<Run>();
@@ -298,6 +300,7 @@ public class Engine {
         if (ConfigFlags.sase) {
             Event e = null;
             long currentTime = 0;
+            currentTime = System.nanoTime();
             // 逐个评估事件
             while ((e = this.input.popEvent()) != null) {
                 currentTime = System.nanoTime();
@@ -324,6 +327,8 @@ public class Engine {
          *	给分好组的事件包，排队送入NFA
          */
         if (ConfigFlags.processUnoderConcurrentEventStream) {
+            long currentTime = 0;
+            currentTime = System.nanoTime();
             Event e = null;
             //每次从流中取事件的数量，以后改成能在环境中输入
             int batchSize = 30;
@@ -344,6 +349,10 @@ public class Engine {
                     eventGoNFA(tsGroups);
                     eventsProcessed = 0; // 重置计数器
                     batchEvents.clear(); // 清空当前批次的事件列表
+
+                    // 更新总运行时间和事件数量
+                    Profiling.totalRunTime += (System.nanoTime() - currentTime);
+                    Profiling.numberOfEvents += 1;
                 }
             }
         }
@@ -416,6 +425,7 @@ public class Engine {
         if (this.toDeleteRuns.size() > 0) {
             this.cleanRuns();
         }
+
         // [3]创建新的运行，以当前事件为起点
         this.oneEventCreateNewRun(e);
     }
@@ -631,6 +641,12 @@ public class Engine {
             // 获取当前运行的最后一个事件的时间戳。
             lasttimestamp = r.getLastNEventTimeStamp();
             this.oneEventEvaluateEventForSkipTillNext(e, r);
+        }
+        if (removeEvents != null) {
+            for (Event i : removeEvents) {
+                swipeBuffer.remove(i);
+            }
+            removeEvents.clear();
         }
     }
 
@@ -945,7 +961,7 @@ public class Engine {
                             Profiling.totalRunLifeTime += (System.nanoTime() - r.getLifeTimeBegin());
 
                         }
-                    } else {//注销了闭包检查
+                    } else {
                         //check proceed
                         if (this.checkProceed(newRun)) {
                             Run newerRun = this.cloneRun(newRun);
@@ -978,7 +994,8 @@ public class Engine {
      */
     public void evaluateEventForSkipTillNextByDeeCEP(Map<String, List<Event>> eventGroups, Run r) throws CloneNotSupportedException {
         // 标识谓词检查结果，默认为 true。
-        boolean checkResult = true;
+        boolean checkResultEventType = true;
+        boolean checkResulttimeWindow = true;
         // 已完成NFA的几个状态
         int currentState = r.getCurrentState();
         // 获取当前状态。
@@ -987,21 +1004,21 @@ public class Engine {
         combinations = this.checkPredicateByDeeCEP(eventGroups, r);
         if (combinations == null || combinations.isEmpty()) {
             // 如果事件类型不匹配，返回false
-            checkResult = false;
+            checkResultEventType = false;
         } else {
-            checkResult = true;
+            checkResultEventType = true;
         }
 
 
         // 当前时间戳与当前部分匹配的最后时间戳不同,注释掉 if 语句，作为正常的 SASE 逻辑, 正常情况下，该 if 语句用于处理并发逻辑，因此暂时注释掉。
         // if (e.getTimestamp() != lasttimestamp) {
-        if (checkResult) { // 如果谓词检查通过。
+        if (checkResultEventType) { // 如果谓词检查通过。
             // 检查时间窗口是否通过，事件包来的时候没有时间戳，但是事件包的时间戳都一样，拿第一个事件的时间戳就行
             Event e = eventGroups.values().iterator().next().get(0);
-            checkResult = this.checkTimeWindow(e, r);
+            checkResulttimeWindow = this.checkTimeWindow(e, r);
 //            System.out.println("the time window is ok");
             //12.28
-            if (checkResult) { // 如果谓词和时间窗口都通过。
+            if (checkResulttimeWindow) { // 如果谓词和时间窗口都通过。
 //                this.buffer.bufferEvent(e); // 将事件添加到缓冲区。
                 int oldState = 0;
                 int newState = 0;
@@ -1018,48 +1035,49 @@ public class Engine {
 
                 // 更新当前所在状态机的状态。
                 newState = r.getCurrentState();
-
-//                if (oldState == newState) { // Kleene 闭包
-                if (r.isFull()) {
-                    // 检查匹配（全部通过）并输出匹配结果。
-                    if (r.checkMatch()) {
-                        // 创建 Match 对象
-                        Match match = new Match(r, this.nfa, this.buffer);
-                        // 输出匹配结果
-                        this.outputMatch(match);
-//                        this.outputMatch(new Match(r, this.nfa, this.buffer));
-                        Profiling.totalRunLifeTime += (System.nanoTime() - r.getLifeTimeBegin());
-                        this.toDeleteRuns.add(r);
-                    }
-                } //注销了闭包检查
-                else {
-                    // 检查运行是否继续。
-//                        if (this.checkProceed(r)) {
-                    // 如果运行可以继续，执行以下操作：
-                    // 克隆当前运行，创建一个新的运行对象
-                    Run newRun = this.cloneRun(r);
-                    // 将新运行添加到活跃运行集合中
-                    this.activeRuns.add(newRun);
-                    // 根据运行的分区添加运行
-                    this.addRunByPartition(newRun);
-                    // 推进当前运行到下一个状态
-//                        r.proceed();
-                    // 检查当前运行是否已完成
-                    if (r.isComplete()) {
-                        // 如果当前运行已完成，执行以下操作：
-                        // 输出匹配项，将当前运行、NFA和缓冲区传递给Match对象
-                        this.outputMatch(new Match(r, this.nfa, this.buffer));
-                        // 更新总运行生命周期的性能分析信息
-                        Profiling.totalRunLifeTime += (System.nanoTime() - r.getLifeTimeBegin());
-                        // 将已完成的运行添加到待删除运行集合中
-                        this.toDeleteRuns.add(r);
-//                            }
-                    }
-                }
             }
+//            else if(){
+//                // 检查运行是否继续。
+////                        if (this.checkProceed(r)) {
+//                // 如果运行可以继续，执行以下操作：
+//                // 克隆当前运行，创建一个新的运行对象
+//                Run newRun = this.cloneRun(r);
+//                // 将新运行添加到活跃运行集合中
+//                this.activeRuns.add(newRun);
+//                // 根据运行的分区添加运行
+//                this.addRunByPartition(newRun);
+//                // 推进当前运行到下一个状态
+////                        r.proceed();
+//                // 检查当前运行是否已完成
+//                if (r.isComplete()) {
+//                    // 如果当前运行已完成，执行以下操作：
+//                    // 输出匹配项，将当前运行、NFA和缓冲区传递给Match对象
+//                    this.outputMatch(new Match(r, this.nfa, this.buffer));
+//                    // 更新总运行生命周期的性能分析信息
+//                    Profiling.totalRunLifeTime += (System.nanoTime() - r.getLifeTimeBegin());
+//                    // 将已完成的运行添加到待删除运行集合中
+//                    this.toDeleteRuns.add(r);
+////                            }
+//                }
+//            }
+//                if (oldState == newState) { // Kleene 闭包
+            if (r.isFull()) {
+                // 检查匹配（全部通过）并输出匹配结果。
+                if (r.checkMatch()) {
+                    // 创建 Match 对象
+                    Match match = new Match(r, this.nfa, this.buffer);
+                    // 输出匹配结果
+                    this.outputMatch(match);
+//                        this.outputMatch(new Match(r, this.nfa, this.buffer));
+                    Profiling.totalRunLifeTime += (System.nanoTime() - r.getLifeTimeBegin());
+                    this.toDeleteRuns.add(r);
+                }
+            } //注销了闭包检查
+
         } else {
             this.toDeleteRuns.add(r);
         }
+
 //
     }
 
@@ -1074,79 +1092,101 @@ public class Engine {
     public void oneEventEvaluateEventForSkipTillNext(Event e, Run r) throws CloneNotSupportedException {
         // 标识谓词检查结果，默认为 true。
         boolean checkResult = true;
-        // 已完成NFA的几个状态
-        int currentState = r.getCurrentState();
+        boolean checkResultTimwWindow = true;
         // 获取当前状态。
+        int currentState = r.getCurrentState();
         State s = this.nfa.getStates(currentState);
+
         List<List<Event>> combinations = null;
+
         // 如果是并发边，回滑动缓存区取并发事件进行集合与集合的比较
         if (s.getStateType().equalsIgnoreCase("concurrent")) {
             State stateInstance = new State();  // 创建 State 类的对象
             // 检查事件类型是否匹配
             combinations = stateInstance.swipeBufferFindCombinations(swipeBuffer, s.getEventType());
-            if (combinations == null || combinations.isEmpty()) {
-                // 如果事件类型不匹配，返回false
-                checkResult = false;
-            } else {
-                checkResult = true;
-                // 检查时间窗口是否通过，事件包来的时候没有时间戳，但是事件包的时间戳都一样，拿第一个事件的时间戳就行
-            }
-        } else {//如果是普通边进行普通谓词检查
-            checkResult = this.checkPredicate(e, r); // 检查普通谓词
-        }
-        // 当前时间戳与当前部分匹配的最后时间戳不同,注释掉 if 语句，作为正常的 SASE 逻辑, 正常情况下，该 if 语句用于处理并发逻辑，因此暂时注释掉。
-        // if (e.getTimestamp() != lasttimestamp) {
-        if (checkResult) { // 如果谓词和时间窗口都通过。
-            int numberOfConcurrentInThisEventList = combinations.size();
-            for (List<Event> eventList : combinations) {
-                // 复制当前的 r，每个 r 都有相同的事件
-                Run copiedR = (Run) r.clone(); // 假设 Run 类有一个 copy 方法用于复制对象
+            // 如果事件类型不匹配，返回false
+            checkResult = combinations != null && !combinations.isEmpty();
+            // 如果谓词和时间窗口都通过。
+            if (checkResult) {
+                int numberOfConcurrentInThisEventList = combinations.size();
 
-                int i = 0;
-                for (Event event : eventList) {
-                    checkResult = this.checkTimeWindow(event, copiedR); // 使用复制后的 r
-                    if (checkResult) {
-                        this.buffer.bufferEvent(event);
-                        copiedR.addConcurrentEvent(event, numberOfConcurrentInThisEventList, i);
+                for (List<Event> eventList : combinations) {
+                    // 复制当前的 r，每个 r 都有相同的事件
+                    Run copiedR = (Run) r.clone();
+                    Event minTimestampEvent = null; // 初始化变量，用于存储具有最小时间戳的事件
+                    if (eventList != null && !eventList.isEmpty()) { // 确认事件列表不为空
+                        minTimestampEvent = eventList.get(0); // 假设第一个事件的时间戳最小
+                        for (Event j : eventList) {
+                            if (j.getTimestamp() < minTimestampEvent.getTimestamp()) { // 比较时间戳
+                                minTimestampEvent = j; // 更新具有最小时间戳的事件
+                            }
+                        }
                     }
-                    i++;
-                }
+                    checkResultTimwWindow = this.checkTimeWindow(minTimestampEvent, copiedR); // 使用复制后的 r
 
-                if (copiedR.isFull()) {
-                    // 检查匹配（全部通过）并输出匹配结果。
-                    if (copiedR.checkMatch()) {
+                    if (checkResultTimwWindow) {
+                        int i = 0;
+                        for (Event event : eventList) {
+
+                            this.buffer.bufferEvent(event);
+                            this.removeEvents.add(event);
+                            copiedR.addConcurrentEvent(event, numberOfConcurrentInThisEventList, i);
+                            if (i == numberOfConcurrentInThisEventList) {
+                                this.activeRuns.add(copiedR);
+                            }
+                            i++;
+                        }
+
+                    } else {
+                        this.toDeleteRuns.add(r);
+                    }
+
+                    if (copiedR.isFull() && copiedR.checkMatch()) {
                         // 创建 Match 对象
                         Match match = new Match(copiedR, this.nfa, this.buffer);
                         // 输出匹配结果
                         this.outputMatch(match);
                         Profiling.totalRunLifeTime += (System.nanoTime() - copiedR.getLifeTimeBegin());
                         this.toDeleteRuns.add(copiedR);
-                    }
-                } else {
-                    // 检查运行是否继续。
-                    if (this.checkProceed(copiedR)) {
+                    } else if (copiedR.isComplete() && this.checkProceed(copiedR)) {
                         // 如果运行可以继续，执行以下操作：
-                        // 克隆当前运行，创建一个新的运行对象
-                        Run newRun = this.cloneRun(copiedR);
-                        // 将新运行添加到活跃运行集合中
-                        this.activeRuns.add(newRun);
-                        // 检查当前运行是否已完成
-                        if (copiedR.isComplete()) {
-                            // 如果当前运行已完成，执行以下操作：
-                            // 输出匹配项，将当前运行、NFA和缓冲区传递给 Match 对象
-                            this.outputMatch(new Match(copiedR, this.nfa, this.buffer));
-                            // 更新总运行生命周期的性能分析信息
-                            Profiling.totalRunLifeTime += (System.nanoTime() - copiedR.getLifeTimeBegin());
-                            // 将已完成的运行添加到待删除运行集合中
-                            this.toDeleteRuns.add(copiedR);
-                        }
+//                    // 克隆当前运行，创建一个新的运行对象
+//                    Run newRun = this.cloneRun(copiedR);
+//                    // 将新运行添加到活跃运行集合中
+//                    this.activeRuns.add(newRun);
+//                    // 如果当前运行已完成
+//                    if (copiedR.isComplete()) {
+//                        // 输出匹配项，将当前运行、NFA和缓冲区传递给 Match 对象
+//                        this.outputMatch(new Match(copiedR, this.nfa, this.buffer));
+//                        // 更新总运行生命周期的性能分析信息
+//                        Profiling.totalRunLifeTime += (System.nanoTime() - copiedR.getLifeTimeBegin());
+//                        // 将已完成的运行添加到待删除运行集合中
+//                        this.toDeleteRuns.add(copiedR);
+//                    }
                     }
                 }
             }
         } else {
-            this.toDeleteRuns.add(r);
+            // 如果是普通边进行普通谓词检查
+            checkResult = this.checkPredicate(e, r); // 检查普通谓词
+            if (checkResult) {
+                Run copiedR = this.cloneRun(r);
+                this.buffer.bufferEvent(e);
+                this.removeEvents.add(e);
+                copiedR.addEvent(e);
+                this.activeRuns.add(copiedR);
+                if (copiedR.isFull() && copiedR.checkMatch()) {
+                    // 创建 Match 对象
+                    Match match = new Match(copiedR, this.nfa, this.buffer);
+                    // 输出匹配结果
+                    this.outputMatch(match);
+                    Profiling.totalRunLifeTime += (System.nanoTime() - copiedR.getLifeTimeBegin());
+                    this.toDeleteRuns.add(copiedR);
+                }
+            }
         }
-//
+
+
     }
 
 
@@ -1160,48 +1200,42 @@ public class Engine {
      */
 // 如果 checkResult = true，当前事件 e 将加入当前运行 r。
     public void evaluateEventForSkipTillNext(Event e, Run r) throws CloneNotSupportedException {
-        boolean checkResult = true; // 标识谓词检查结果，默认为 true。
-        int currentState = r.getCurrentState(); // 获取当前运行的状态。
-        State s = this.nfa.getStates(currentState); // 获取当前状态。
+        boolean checkResult = true;
 
-        checkResult = this.checkPredicate(e, r); // 检查普通谓词
-        // }
 
-        // 当前时间戳与当前部分匹配的最后时间戳不同
-        // 注释掉 if 语句，作为正常的 SASE 逻辑
-        // 正常情况下，该 if 语句用于处理并发逻辑，因此暂时注释掉。
-        // if (e.getTimestamp() != lasttimestamp) {
-        if (checkResult) { // 如果谓词检查通过。
-            // System.out.println("checkResult is true，满足当前谓词");
-            checkResult = this.checkTimeWindow(e, r); // 检查时间窗口是否通过。
-            // System.out.println("the time window is ok");
-            if (checkResult) { // 如果谓词和时间窗口都通过。
-                this.buffer.bufferEvent(e); // 将事件添加到缓冲区。
+        checkResult = this.checkPredicate(e, r);// check predicate
+        if (checkResult) { // the predicate if ok.
+            checkResult = this.checkTimeWindow(e, r); // the time window is ok
+            if (checkResult) {// predicate and time window are ok
+                this.buffer.bufferEvent(e);// add the event to buffer
                 int oldState = 0;
                 int newState = 0;
                 oldState = r.getCurrentState();
-                r.addEvent(e); // 添加事件到运行。
-                // 更新当前所在状态机的状态。
+                r.addEvent(e);
                 newState = r.getCurrentState();
-//                if (oldState == newState) { // Kleene 闭包
-                if (r.isFull()) {
-                    // 检查匹配（全部通过）并输出匹配结果。
-                    if (r.checkMatch()) {
-                        this.outputMatch(new Match(r, this.nfa, this.buffer));
-                        Profiling.totalRunLifeTime += (System.nanoTime() - r.getLifeTimeBegin());
-                        this.toDeleteRuns.add(r);
-                    }
-                } else {
-                    // 检查运行是否继续。
-//                        if (this.checkProceed(r)) {
-                    Run newRun = this.cloneRun(r);
-                    this.activeRuns.add(newRun);
-                    this.addRunByPartition(newRun);
-//                    r.proceed();
-                    if (r.isComplete()) {
-                        this.outputMatch(new Match(r, this.nfa, this.buffer));
-                        Profiling.totalRunLifeTime += (System.nanoTime() - r.getLifeTimeBegin());
-                        this.toDeleteRuns.add(r);
+                if (oldState == newState)//kleene closure
+                {
+                    if (r.isFull) {
+                        //check match and output match
+                        if (r.checkMatch()) {
+                            this.outputMatch(new Match(r, this.nfa, this.buffer));
+                            Profiling.totalRunLifeTime += (System.nanoTime() - r.getLifeTimeBegin());
+                            this.toDeleteRuns.add(r);
+                        }
+                    } else {
+                        //check proceed
+                        if (this.checkProceed(r)) {
+                            Run newRun = this.cloneRun(r);
+
+                            this.activeRuns.add(newRun);
+                            this.addRunByPartition(newRun);
+                            r.proceed();
+                            if (r.isComplete()) {
+                                this.outputMatch(new Match(r, this.nfa, this.buffer));
+                                Profiling.totalRunLifeTime += (System.nanoTime() - r.getLifeTimeBegin());
+                                this.toDeleteRuns.add(r);
+                            }
+                        }
                     }
                 }
             } else {
@@ -1209,6 +1243,7 @@ public class Engine {
             }
         }
     }
+
 
 
     /**
@@ -1490,6 +1525,8 @@ public class Engine {
             numberOfRuns++;
             // 将新运行添加到活动运行列表中
             this.activeRuns.add(newRun);
+            //从滑动缓存区中删除
+            swipeBuffer.remove(e);
         }
     }
 

@@ -350,7 +350,7 @@ public class State {
      *
      * @param eventGroups 事件列表
      * @param Q           匹配条件
-     * @return 找到的所有排列组合
+     * @return combinations 找到的所有排列组合
      */
     public List<List<Event>> swipeBufferFindCombinations(List<Event> eventGroups, String Q) {
         Q = Q.replace("^", "");
@@ -372,34 +372,54 @@ public class State {
      * @param combinations       存储找到的所有符合条件的排列组合
      */
     private static void swipeBufferFindCombinationsHelper(List<Event> eventGroups, String Q, int index, List<Event> currentCombination, List<List<Event>> combinations) {
-        // 如果已经匹配完 Q 中的所有事件类型，将当前组合添加到结果集合中
+        // 如果已经匹配完Q中的所有事件类型，将当前组合添加到结果集合中
         if (index == Q.length()) {
-            // 在添加到结果集合之前对当前组合按照时间戳排序
-            currentCombination.sort(Comparator.comparingLong(Event::getTimestamp));
+            // 在添加到结果集合之前，对当前组合按照时间戳排序
+            currentCombination.sort(Comparator.comparingInt(Event::getTimestamp));
             combinations.add(new ArrayList<>(currentCombination));
             return;
         }
 
-        // 获取当前 Q 中指定位置的事件类型
+        // 获取Q中当前位置指定的事件类型
         String eventType = String.valueOf(Q.charAt(index));
 
-        // 遍历 events
+        // 遍历事件列表
         for (Event event : eventGroups) {
-            // 检查事件的类型是否匹配当前 Q 中指定位置的事件类型
+            // 检查事件类型是否与Q中指定的类型匹配
             if (equal(event.getEventType(), eventType)) {
-                // 剪枝：如果当前事件已经在组合中，跳过
-                if (!currentCombination.contains(event)) {
-                    // 将当前事件添加到组合中
-                    currentCombination.add(event);
-                    // 递归调用，继续搜索下一个事件类型
-                    swipeBufferFindCombinationsHelper(eventGroups, Q, index + 1, currentCombination, combinations);
-                    // 回溯：将添加的事件移除，尝试下一个事件
-                    currentCombination.remove(currentCombination.size() - 1);
-                }
+                // 将当前事件添加到组合中
+                currentCombination.add(event);
+                // 递归调用方法，继续搜索下一个事件类型
+                swipeBufferFindCombinationsHelper(eventGroups, Q, index + 1, currentCombination, combinations);
+                // 回溯：移除刚才添加的事件，尝试其他可能的事件
+                currentCombination.remove(currentCombination.size() - 1);
             }
         }
     }
-
+//    private static void swipeBufferFindCombinationsHelper(List<Event> eventGroups, String Q, int index, List<Event> currentCombination, List<List<Event>> combinations) {
+//        if (index == Q.length()) {
+//            currentCombination.sort(Comparator.comparingInt(Event::getTimestamp));
+//            combinations.add(new ArrayList<>(currentCombination));
+//            return;
+//        }
+//
+//        String eventType = String.valueOf(Q.charAt(index));
+//        // 创建一个集合来存储已经添加到组合中的事件类型
+//        Set<String> usedEventTypes = new HashSet<>();
+//        for (Event event : currentCombination) {
+//            usedEventTypes.add(event.getEventType());
+//        }
+//
+//        for (Event event : eventGroups) {
+//            if (equal(event.getEventType(), eventType) && !usedEventTypes.contains(eventType)) {
+//                currentCombination.add(event);
+//                swipeBufferFindCombinationsHelper(eventGroups, Q, index + 1, currentCombination, combinations);
+//                currentCombination.remove(currentCombination.size() - 1);
+//                // 添加到 usedEventTypes 集合中，避免重复添加
+//                usedEventTypes.add(eventType);
+//            }
+//        }
+//    }
     /**
      * Dee
      * combinations：存储找到的所有符合条件的排列组合
