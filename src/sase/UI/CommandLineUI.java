@@ -46,19 +46,18 @@ import sase.stream.StreamController;
  */
 
 public class CommandLineUI {
-
+    static public int tw=3;
 
     /**
      * The main entry to run the engine under command line
      *
      * @param args the inputs
      *             <p>
-     *             0: NFA文件地址
-     *             1: 流文件地址
-     *             2: 输出结果到指定地址
+     *             0: 流文件地址
+     *             1: 输出结果到指定地址
      */
     public static void main(String args[]) throws CloneNotSupportedException, EvaluationException, FileNotFoundException, IOException {
-        String nfaFileLocation = "example\\test\\test.query";
+        String nfaFileLocation = "E:\\SASE\\example\\test\\test.query";
         String streamConfigFile = "example\\test\\test.stream";
         //是否打印结果：
         ConfigFlags.printResults = true;
@@ -69,15 +68,15 @@ public class CommandLineUI {
         //是否使用原始SASE
         ConfigFlags.sase = false;
 
-
-        if (args.length > 0) {
-            nfaFileLocation = args[0];
-        }
+//
+//        if (args.length > 0) {
+//            nfaFileLocation = args[0];
+//        }
 
 
         StreamController myStreamController = null;
-        if (args[1].contains("\\")) {
-            streamConfigFile = args[1];
+        if (args[0].contains("\\")) {
+            streamConfigFile = args[0];
             List<String> lines = null;
             try {
                 // 读取文件中的所有行到一个列表中
@@ -125,16 +124,16 @@ public class CommandLineUI {
         }
 
 
-        if (args.length > 2 && args[2] != null) {
+        if (args.length > 1 && args[1] != null) {
             // 使用java.io.File对象来解析args[1]，获取文件名
-            File inputFile = new File(args[1]);
+            File inputFile = new File(args[0]);
             String fileNameWithoutExtension = inputFile.getName();
             // 去除".txt"扩展名
             if (fileNameWithoutExtension.endsWith(".txt")) {
                 fileNameWithoutExtension = fileNameWithoutExtension.substring(0, fileNameWithoutExtension.length() - 4);
             }
             // 构建输出文件的路径
-            String outputPath = args[2] +"\\"+ fileNameWithoutExtension + "结果.txt";
+            String outputPath = args[1] +"\\"+ fileNameWithoutExtension + "结果.txt";
             try {
                 // 创建文件输出PrintStream对象
                 PrintStream fileOut = new PrintStream(outputPath);

@@ -26,10 +26,12 @@ package sase.query;
 
 import java.util.*;
 
+import sase.engine.Run;
 import sase.stream.Event;
 import net.sourceforge.jeval.EvaluationException;
 
 import static com.sun.xml.internal.bind.v2.schemagen.Util.equal;
+import static sase.UI.CommandLineUI.tw;
 
 /**
  * This class represents a state from NFA.
@@ -343,6 +345,7 @@ public class State {
         return "This is the " + order + " state, requiring events of " + eventType
                 + " event type, " + temp;
     }
+
     /**
      * Dee
      * combinations：存储找到的所有符合条件的排列组合
@@ -352,7 +355,19 @@ public class State {
      * @param Q           匹配条件
      * @return combinations 找到的所有排列组合
      */
-    public List<List<Event>> swipeBufferFindCombinations(List<Event> eventGroups, String Q) {
+//    public List<List<Event>> swipeBufferFindCombinations(List<Event> eventGroups, String Q) {
+    public List<List<Event>> swipeBufferFindCombinations(List<Event> eventGroups, String Q, Run r) {
+        if (r != null) {
+            //检查匹配中没有之前匹配过的运行
+            for (int i : r.getEventIds()) {
+                for (int j = 0; j < eventGroups.size(); j++) {
+                    if (eventGroups.get(j).getId() == i) {
+                        eventGroups.remove(j);
+                    }
+                }
+
+            }
+        }
         Q = Q.replace("^", "");
         // combinations：存储找到的所有符合条件的排列组合
         List<List<Event>> combinations = new ArrayList<>();
@@ -387,12 +402,14 @@ public class State {
         for (Event event : eventGroups) {
             // 检查事件类型是否与Q中指定的类型匹配
             if (equal(event.getEventType(), eventType)) {
-                // 将当前事件添加到组合中
-                currentCombination.add(event);
-                // 递归调用方法，继续搜索下一个事件类型
-                swipeBufferFindCombinationsHelper(eventGroups, Q, index + 1, currentCombination, combinations);
-                // 回溯：移除刚才添加的事件，尝试其他可能的事件
-                currentCombination.remove(currentCombination.size() - 1);
+                if (isValidTimeConstraint(currentCombination, event, tw)) {
+                    // 将当前事件添加到组合中
+                    currentCombination.add(event);
+                    // 递归调用方法，继续搜索下一个事件类型
+                    swipeBufferFindCombinationsHelper(eventGroups, Q, index + 1, currentCombination, combinations);
+                    // 回溯：移除刚才添加的事件，尝试其他可能的事件
+                    currentCombination.remove(currentCombination.size() - 1);
+                }
             }
         }
     }
@@ -420,17 +437,26 @@ public class State {
 //            }
 //        }
 //    }
+private static boolean isValidTimeConstraint(List<Event> currentCombination, Event newEvent, int tw) {
+    if (!currentCombination.isEmpty()) {
+        Event lastEvent = currentCombination.get(currentCombination.size() - 1);
+        int timeDifference = Math.abs(newEvent.getTimestamp() - lastEvent.getTimestamp());
+        return timeDifference <= tw;
+    }
+    return true; // If currentCombination is empty, time constraint is valid
+}
     /**
      * Dee
      * combinations：存储找到的所有符合条件的排列组合
      * Map<String, List<Event>>与Q匹配版本
+     *
      * @param eventGroups
      * @return
      */
     // 寻找匹配的排列组合的方法
     // 递归1：公共接口
-    public List<List<Event>> findCombinations(Map<String, List<Event>> eventGroups,String Q) {
-         Q = Q.replace("^", "");
+    public List<List<Event>> findCombinations(Map<String, List<Event>> eventGroups, String Q) {
+        Q = Q.replace("^", "");
         // combinations：存储找到的所有符合条件的排列组合
         List<List<Event>> combinations = new ArrayList<>();
         // 调用辅助方法开始搜索排列组合
@@ -470,6 +496,7 @@ public class State {
             }
         }
     }
+
     /**
      * 函数注释：判断是否可以启动一个事件。
      *
@@ -494,8 +521,9 @@ public class State {
 //                return false;
 //            }
         } else {//canStart事件是concurrent事件，比如是A^B^
+            Run r = null;
             //递归+剪枝与Q集合对比
-            combinations = swipeBufferFindCombinations(eventGroups,this.eventType);
+            combinations = swipeBufferFindCombinations(eventGroups, this.eventType, r);
             //combinations为空，说明没找到匹配
         }
 
@@ -527,9 +555,9 @@ public class State {
 //            }
         } else {//canStart事件是concurrent事件，比如是A^B^
             //递归+剪枝与Q集合对比
-            combinations = findCombinations(eventGroups,this.eventType);
+            combinations = findCombinations(eventGroups, this.eventType);
             //combinations为空，说明没找到匹配
-            }
+        }
 
         return combinations; // 返回 true，表示事件符合启动条件
     }

@@ -416,6 +416,8 @@ public class Engine {
      * [3]创建新运行
      */
     public void oneEventGoNFA(Event e) throws EvaluationException, CloneNotSupportedException {
+        long currentTime = 0;
+        currentTime = System.nanoTime();
         //进来一个单个事件
         //遍历PM列表
         //如果等
@@ -425,9 +427,16 @@ public class Engine {
         if (this.toDeleteRuns.size() > 0) {
             this.cleanRuns();
         }
-
+        if (this.removeEvents.size() > 0) {
+            for (Event i : removeEvents) {
+                swipeBuffer.remove(i);
+            }
+            removeEvents.clear();
+        }
         // [3]创建新的运行，以当前事件为起点
         this.oneEventCreateNewRun(e);
+        Profiling.totalRunTime += (System.nanoTime() - currentTime);
+        Profiling.numberOfEvents += 1;
     }
 
 
@@ -639,15 +648,10 @@ public class Engine {
                 continue;
             }
             // 获取当前运行的最后一个事件的时间戳。
-            lasttimestamp = r.getLastNEventTimeStamp();
+//            lasttimestamp = r.getLastNEventTimeStamp();
             this.oneEventEvaluateEventForSkipTillNext(e, r);
         }
-        if (removeEvents != null) {
-            for (Event i : removeEvents) {
-                swipeBuffer.remove(i);
-            }
-            removeEvents.clear();
-        }
+
     }
 
 
@@ -1096,14 +1100,15 @@ public class Engine {
         // 获取当前状态。
         int currentState = r.getCurrentState();
         State s = this.nfa.getStates(currentState);
-
         List<List<Event>> combinations = null;
 
         // 如果是并发边，回滑动缓存区取并发事件进行集合与集合的比较
         if (s.getStateType().equalsIgnoreCase("concurrent")) {
             State stateInstance = new State();  // 创建 State 类的对象
             // 检查事件类型是否匹配
-            combinations = stateInstance.swipeBufferFindCombinations(swipeBuffer, s.getEventType());
+            combinations = stateInstance.swipeBufferFindCombinations(swipeBuffer, s.getEventType(), r);
+            //检查匹配中没有之前匹配过的运行
+
             // 如果事件类型不匹配，返回false
             checkResult = combinations != null && !combinations.isEmpty();
             // 如果谓词和时间窗口都通过。
@@ -1112,81 +1117,81 @@ public class Engine {
 
                 for (List<Event> eventList : combinations) {
                     // 复制当前的 r，每个 r 都有相同的事件
-                    Run copiedR = (Run) r.clone();
+//                    Run copiedR = (Run) r.clone();
                     Event minTimestampEvent = null; // 初始化变量，用于存储具有最小时间戳的事件
+                    Event maxTimestampEvent = null;
                     if (eventList != null && !eventList.isEmpty()) { // 确认事件列表不为空
                         minTimestampEvent = eventList.get(0); // 假设第一个事件的时间戳最小
                         for (Event j : eventList) {
-                            if (j.getTimestamp() < minTimestampEvent.getTimestamp()) { // 比较时间戳
+                            if (j.getTimestamp() < minTimestampEvent.getTimestamp()) {
                                 minTimestampEvent = j; // 更新具有最小时间戳的事件
                             }
+                            if (j.getTimestamp() > maxTimestampEvent.getTimestamp()) {
+                                maxTimestampEvent = j; // 更新具有最大时间戳的事件
+                            }
+                            r.MaxMomentStorage=maxTimestampEvent.getTimestamp();
                         }
                     }
-                    checkResultTimwWindow = this.checkTimeWindow(minTimestampEvent, copiedR); // 使用复制后的 r
 
+                    checkResultTimwWindow = this.checkTimeWindow(minTimestampEvent, r);
                     if (checkResultTimwWindow) {
                         int i = 0;
                         for (Event event : eventList) {
-
                             this.buffer.bufferEvent(event);
-                            this.removeEvents.add(event);
-                            copiedR.addConcurrentEvent(event, numberOfConcurrentInThisEventList, i);
-                            if (i == numberOfConcurrentInThisEventList) {
-                                this.activeRuns.add(copiedR);
-                            }
+//                            this.removeEvents.add(event);
+                            r.addConcurrentEvent(event, numberOfConcurrentInThisEventList, i);
                             i++;
+                            swipeBuffer.remove(event);
                         }
 
                     } else {
                         this.toDeleteRuns.add(r);
                     }
 
-                    if (copiedR.isFull() && copiedR.checkMatch()) {
+                    if (r.isFull() && r.checkMatch()) {
                         // 创建 Match 对象
-                        Match match = new Match(copiedR, this.nfa, this.buffer);
+                        Match match = new Match(r, this.nfa, this.buffer);
                         // 输出匹配结果
                         this.outputMatch(match);
-                        Profiling.totalRunLifeTime += (System.nanoTime() - copiedR.getLifeTimeBegin());
-                        this.toDeleteRuns.add(copiedR);
-                    } else if (copiedR.isComplete() && this.checkProceed(copiedR)) {
-                        // 如果运行可以继续，执行以下操作：
-//                    // 克隆当前运行，创建一个新的运行对象
-//                    Run newRun = this.cloneRun(copiedR);
-//                    // 将新运行添加到活跃运行集合中
-//                    this.activeRuns.add(newRun);
-//                    // 如果当前运行已完成
-//                    if (copiedR.isComplete()) {
-//                        // 输出匹配项，将当前运行、NFA和缓冲区传递给 Match 对象
-//                        this.outputMatch(new Match(copiedR, this.nfa, this.buffer));
-//                        // 更新总运行生命周期的性能分析信息
-//                        Profiling.totalRunLifeTime += (System.nanoTime() - copiedR.getLifeTimeBegin());
-//                        // 将已完成的运行添加到待删除运行集合中
-//                        this.toDeleteRuns.add(copiedR);
-//                    }
+                        Profiling.totalRunLifeTime += (System.nanoTime() - r.getLifeTimeBegin());
+                        this.toDeleteRuns.add(r);
+                    } else if (r.isComplete() && this.checkProceed(r)) {
                     }
                 }
             }
         } else {
             // 如果是普通边进行普通谓词检查
+            checkResult = this.checktimestamp(e, r);
             checkResult = this.checkPredicate(e, r); // 检查普通谓词
             if (checkResult) {
-                Run copiedR = this.cloneRun(r);
-                this.buffer.bufferEvent(e);
-                this.removeEvents.add(e);
-                copiedR.addEvent(e);
-                this.activeRuns.add(copiedR);
-                if (copiedR.isFull() && copiedR.checkMatch()) {
-                    // 创建 Match 对象
-                    Match match = new Match(copiedR, this.nfa, this.buffer);
-                    // 输出匹配结果
-                    this.outputMatch(match);
-                    Profiling.totalRunLifeTime += (System.nanoTime() - copiedR.getLifeTimeBegin());
-                    this.toDeleteRuns.add(copiedR);
+//                Run copiedR = this.cloneRun(r);
+                checkResult = this.checkTimeWindow(e, r); // the time window is ok
+                if (checkResult) {// predicate and time window are ok
+                    this.buffer.bufferEvent(e);
+//                    this.removeEvents.add(e);
+                    r.addEvent(e);
+//                    this.activeRuns.add(copiedR);r
+                    if (r.isFull() && r.checkMatch()) {
+                        // 创建 Match 对象
+                        Match match = new Match(r, this.nfa, this.buffer);
+                        // 输出匹配结果
+                        this.outputMatch(match);
+                        Profiling.totalRunLifeTime += (System.nanoTime() - r.getLifeTimeBegin());
+                        this.toDeleteRuns.add(r);
+                    } else {
+//                        Run newRun = this.cloneRun(r);
+//                        this.activeRuns.add(r);
+//                        this.addRunByPartition(r);
+//                        r.proceed();
+                        if (r.isComplete()) {
+                            this.outputMatch(new Match(r, this.nfa, this.buffer));
+                            Profiling.totalRunLifeTime += (System.nanoTime() - r.getLifeTimeBegin());
+                            this.toDeleteRuns.add(r);
+                        }
+                    }
                 }
             }
         }
-
-
     }
 
 
@@ -1207,6 +1212,7 @@ public class Engine {
         if (checkResult) { // the predicate if ok.
             checkResult = this.checkTimeWindow(e, r); // the time window is ok
             if (checkResult) {// predicate and time window are ok
+                checkResult = this.checktimestamp(e, r);
                 this.buffer.bufferEvent(e);// add the event to buffer
                 int oldState = 0;
                 int newState = 0;
@@ -1243,7 +1249,6 @@ public class Engine {
             }
         }
     }
-
 
 
     /**
@@ -1461,7 +1466,7 @@ public class Engine {
      * @throws EvaluationException
      */
     public void oneEventCreateNewRun(Event e) throws EvaluationException {
-        List<Event> eventGroups = new ArrayList();
+//        List<Event> eventGroups = new ArrayList();
         // 检查NFA的初始状态是否能够以给定事件开始
         // [1]PM在等并发事件
         if ("concurrent".equals(this.nfa.getStates()[0].getStateType())) {
@@ -1470,15 +1475,15 @@ public class Engine {
             //考虑怎么删除滑动缓存区的事件->想好了，遍历完activeRuns所有PM后删除
 
             // 遍历 swipeBuffer,把swipeBuffer中的元素都倒腾到eventGroups中
-            for (int i = 0; i < swipeBuffer.size(); i++) {
-                // 对每个事件执行操作
-                Event event = swipeBuffer.get(i);
-                eventGroups.add(event);
-            }
+//            for (int i = 0; i < swipeBuffer.size(); i++) {
+//                // 对每个事件执行操作
+//                Event event = swipeBuffer.get(i);
+//                eventGroups.add(event);
+//            }
             boolean checkswipeBufferCanStart;
             //swipeBufferCanStartWithEventByDeeCEP 方法，而这个方法属于 State 类的实例，这个实例是通过 this.nfa.getStates()[0] 获取的。
             //没找到组合，也就是说无匹配结果，swipeBuffer中的事件不能开启新NFA
-            List<List<Event>> combination = this.nfa.getStates()[0].swipeBufferCanStartWithEventByDeeCEP(eventGroups);
+            List<List<Event>> combination = this.nfa.getStates()[0].swipeBufferCanStartWithEventByDeeCEP(swipeBuffer);
             checkswipeBufferCanStart = combination != null && !combination.isEmpty();
             // 检查NFA的初始状态是否能够以给定事件开始
             if (checkswipeBufferCanStart) {
@@ -1503,6 +1508,7 @@ public class Engine {
                         // 将事件添加到新运行中
                         i++;
                         newRun.addConcurrentEvent(event, numberOfConcurrentInThisEventList, i);
+                        swipeBuffer.remove(event);
                     }
                     // 将新运行添加到活动运行列表中
                     this.activeRuns.add(newRun);
@@ -1526,7 +1532,7 @@ public class Engine {
             // 将新运行添加到活动运行列表中
             this.activeRuns.add(newRun);
             //从滑动缓存区中删除
-            swipeBuffer.remove(e);
+//            this.removeEvents.add(e);
         }
     }
 
@@ -1736,6 +1742,15 @@ public class Engine {
         //注销了闭包
     }
 
+    public boolean checktimestamp(Event e, Run r) {
+
+        if ((e.getTimestamp() > r.getMaxMomentStorage()) ) {
+            return true;
+        }
+        return false;
+
+
+    }
 
     /**
      * Checks whether the event satisfies the predicates of a run

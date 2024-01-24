@@ -56,7 +56,7 @@ public class Run implements Cloneable {
      */
     ArrayList<Integer> sameeventIds;
     boolean sameisstart = false;
-
+    int MaxMomentStorage;
 
     /**
      * The partition id of the run, used under partition-contiguity selection strategy or when a partition attribute is used in other selection strategies
@@ -224,13 +224,15 @@ public class Run implements Cloneable {
         if (stateType.equalsIgnoreCase("concurrent")) {
             this.eventIds.add(e.getId());
             this.ConcurrentInitialized = true;
-			//判断是否为查询的最后一个事件；
-			if (currentState == this.nfa.getSize() - 1) {
-				this.setFull(true);
-			} else if(i==numberOfConcurrentInThisEventList){//不是查询的最后一个事件，	currentState+1；
+
+            if(i==numberOfConcurrentInThisEventList){//不是查询的最后一个事件，	currentState+1；
 				state[currentState] = -1;
-				this.currentState++;
-			}
+                //判断是否为查询的最后一个事件；
+                if (currentState == this.nfa.getSize() - 1) {
+                    this.setFull(true);
+                }
+                this.currentState++;
+            }
             this.count++;
         }
         //查询的第一个事件，记录初始事件用于计算时间窗口；不是第一个事件不进入
@@ -692,4 +694,7 @@ public class Run implements Cloneable {
     }
 
 
+    public int getMaxMomentStorage() {
+        return MaxMomentStorage;
+    }
 }
